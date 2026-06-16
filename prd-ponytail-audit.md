@@ -1,7 +1,7 @@
 ---
 description: "Ponytail over-engineering audit — scans the entire repo for YAGNI, stdlib reinventions, avoidable deps, boilerplate, dead code. Harvests ponytail: debt markers. Ranks findings by impact. Net lines and dependencies removable."
 argument-hint: optional — pass a directory path to scope the scan, or omit to scan the whole tree
-allowed-tools: Bash(git:*), Bash(bun:*), Bash(cat:*), Bash(ls:*), Bash(wc:*), mcp__serena__*, mcp__octocode__*
+allowed-tools: Bash(git:*), Bash(bun:*), Bash(cat:*), Bash(ls:*), Bash(wc:*), mcp__serena__*, mcp__octocode__*, mcp__semble__*
 ponytail: minimal checks, maximum signal
 ---
 
@@ -18,8 +18,10 @@ removable. If nothing to cut: "Lean already. Ship."
 <context>
 Scan scope: $ARGUMENTS — if a path is provided, scope to that subtree.
 If omitted, scan the entire repository (excluding node_modules, .git,
-build output, _archive). Use OctoCode MCP tools for all code searching
-— never bash grep/find. Use Serena for symbol-level analysis.
+build output, _archive). Use OctoCode MCP tools for code searching
+— never bash grep/find. Use Serena for symbol-level analysis. Use
+Semble for semantic similarity search — catches stdlib reinventions
+and duplicate logic even when naming differs.
 </context>
 ```
 
@@ -139,7 +141,33 @@ delete · {file}:{LINE} / ✗ {dead-code description}
   · ~{N} lines / ✓ Delete it. Git history exists.
 ```
 
-### Check 7 — Oversized function
+### Check 7 — Semantic duplication (Semble)
+
+Use `mcp__semble__search` to find code that duplicates existing logic
+even when named differently. Run these semantic queries against the
+repo scope:
+
+| Query | What it finds |
+|---|---|
+| `"event emitter or event bus implementation"` | Reinvented EventTarget/CustomEvent |
+| `"deep clone or deep copy utility"` | Reinvented structuredClone |
+| `"debounce or throttle utility function"` | Reinvented requestIdleCallback |
+| `"uuid or unique id generator"` | Reinvented crypto.randomUUID |
+| `"date formatting or date parsing utility"` | Reinvented Intl.DateTimeFormat |
+
+For each match found by semble, verify with `mcp__octocode__localGetFileContent`
+whether the code truly duplicates a stdlib feature or an existing
+utility in the codebase.
+
+```
+stdlib · {file}:{LINE} / ✗ Semantically duplicates {stdlib-or-existing-utility}
+  · ~{N} lines / ✓ Replace with {stdlib-or-existing-utility}
+```
+
+After each query hit, use `mcp__semble__find_related` from the matched
+file to discover further related instances of the same pattern.
+
+### Check 8 — Oversized function
 
 Use `mcp__serena__find_symbol` with `include_body: true` for functions.
 Flag any function body > 15 lines that does one thing (can be shortened
@@ -150,7 +178,7 @@ shrink · {file}:{LINE} / ✗ {name} is {N} lines; could be {M} with early retur
   · ~{N} lines / ✓ Add early returns, replace if-else chains with ternaries
 ```
 
-### Check 8 — Oversized file with mixed concerns
+### Check 9 — Oversized file with mixed concerns
 
 Use `mcp__octocode__localGetFileContent` on files > 150 lines.
 Check for multiple unrelated exports in one file.
@@ -160,7 +188,7 @@ shrink · {file}:{LINE} / ✗ {N} lines with {exports-count} unrelated exports
   · ~{N} lines / ✓ Split into one file per responsibility
 ```
 
-### Check 9 — ponytail: markers missing upgrade path
+### Check 10 — ponytail: markers missing upgrade path
 
 Use `mcp__octocode__localSearchCode` for `pattern: "ponytail:"` in scope.
 
@@ -232,4 +260,6 @@ Then the verdict block from Phase 3.
 - Ponytail debt markers always included even if zero savings
 - "If nothing to cut: 'Lean already. Ship.'" is the final line
 - Never suggest adding something — only cutting, simplifying, deleting
-- Use OctoCode + Serena for all code scanning — never bash grep/find
+- Use OctoCode + Serena + Semble for all code scanning — never bash grep/find
+- Semble queries first when searching for patterns that might use different naming
+  (stdlib reinventions, duplicate logic); fall back to OctoCode regex for known patterns
