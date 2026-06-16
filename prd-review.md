@@ -1,5 +1,5 @@
 ---
-description: "PRD Step 6/7 — Parallel code review: dispatches 7 specialist agents simultaneously (spec compliance, security, performance, TypeScript, code quality, test coverage, ponytail). Each agent reads only its relevant files. Orchestrator merges findings, deduplicates, sorts by severity. Output: SEVERITY · CATEGORY · file:line / ✗ problem / ✓ fix."
+description: "PRD Step 6/7 — Parallel code review: dispatches 6 specialist agents simultaneously (spec compliance, security, performance, TypeScript, code quality + architecture, test coverage). Each agent reads only its relevant files. Orchestrator merges findings, deduplicates, sorts by severity. Output: SEVERITY · CATEGORY · file:line / ✗ problem / ✓ fix."
 argument-hint: <path to prd-folder — e.g. docs/prd/ai-chat-view>
 allowed-tools: Bash(git:*), Bash(bun:*), Bash(cat:*), Bash(ls:*), mcp__serena__*, mcp__octocode__*
 ---
@@ -75,9 +75,9 @@ A file can appear in multiple buckets. Record which files belong to each bucket.
 
 ---
 
-## Phase 2 — Dispatch 7 Parallel Review Agents
+## Phase 2 — Dispatch 6 Parallel Review Agents
 
-Dispatch all 7 agents simultaneously. Each agent receives:
+Dispatch all 6 agents simultaneously. Each agent receives:
 1. Its specific file list (from Phase 1d buckets)
 2. Its checklist (defined below)
 3. The output format contract
@@ -347,67 +347,7 @@ For each route/action file:
 
 ---
 
-### Agent 7 — Ponytail / Over-Engineering
-
-**Files:** ALL_TS_FILES
-
-**Checklist:**
-
-```
-For each changed file:
-  □ YAGNI violation — abstraction with exactly one usage site
-    Class/enum/interface/helper with single caller → MEDIUM · PONYTAIL
-    ✗ {file}:{line} — {name} defined here but only used at {usage line} — abstraction with one caller
-    ✓ Inline it or delete it; add when a second consumer appears
-
-  □ stdlib reinvention — code the language/platform already provides
-    Hand-rolled feature present in stdlib, runtime, or browser API → HIGH · PONYTAIL
-    ✗ {file}:{line} — {what} reinvented; available via {stdlib function}
-    ✓ Replace with {stdlib function}; mark // ponytail: uses native {API}
-
-  □ Avoidable dependency — new import that adds a dep when platform covers it
-    New import of a library for something the platform/runtime does → HIGH · PONYTAIL
-    ✗ {file}:{line} — imports {lib} for {purpose}; platform provides {alternative}
-    ✓ Replace with native {alternative}; remove the import
-
-  □ Boilerplate / speculative abstraction — interface/type/class not yet needed
-    Interface or type exported but used only by its own implementation → MEDIUM · PONYTAIL
-    ✗ {file}:{line} — {name} exported but only used by {implementor}
-    ✓ Export only when a second consumer exists; keep it co-located for now
-
-  □ Over-DRY — extraction that saves length but costs clarity
-    One-liner extracted into a named function called exactly once → LOW · PONYTAIL
-    ✗ {file}:{line} — {name} is a one-liner called once; inlining would be clearer
-    ✓ Inline the one line; extract when the pattern repeats
-
-  □ ponytail: comment missing ceiling or upgrade path
-    // ponytail: comment without naming ceiling or upgrade trigger → MEDIUM · PONYTAIL
-    ✗ {file}:{line} — ponytail: comment has no ceiling or upgrade path
-    ✓ Add ceiling: {what breaks first} and upgrade: {trigger to revisit}
-
-  □ Function could be shorter — logic fits in fewer lines
-    Function body > 15 lines doing one thing → LOW · PONYTAIL
-    ✗ {file}:{line} — {name} is {N} lines; could be {M} lines with early returns / ternaries
-    ✓ Reduce to {M} lines using early returns or ternary for simple branches
-
-  □ File too large — violates single-responsibility at file level
-    File > 150 lines with multiple unrelated exports → MEDIUM · PONYTAIL
-    ✗ {file} has {N} lines but exports {list} unrelated functions/types
-    ✓ Split into one file per responsibility
-
-  □ Dead code / commented-out code
-    Commented-out blocks, unused exports, unreachable branches → HIGH · PONYTAIL
-    ✗ {file}:{line} — {dead code description}
-    ✓ Delete it. Git history exists for a reason.
-```
-
-**Summary (end of agent output):**
-```
-Net lines removable across changed files: ~{N}
-Dependencies removable: {N} (if any)
-Bulky files: {N} above 150 lines
-ponytail: markers missing trigger: {N}
-```
+### Agent 6 — Test Coverage
 
 **Files:** TEST_FILES + ALL_TS_FILES (to find what has no test)
 
@@ -441,7 +381,7 @@ For each test file in TEST_FILES:
 
 ## Phase 3 — Collect and Merge Findings
 
-Wait for all 7 agents to return.
+Wait for all 6 agents to return.
 
 For each agent response:
 - Parse every finding line into: `{severity} · {category} · {file}:{line} / ✗ {problem} / ✓ {fix}`
@@ -479,7 +419,6 @@ Then the summary block:
   Code quality    : {PASS | FAIL — N issues}
   Tests           : {PASS | FAIL — N issues}
   Architecture    : {PASS | FAIL — N issues}
-  Ponytail        : {PASS | FAIL — N issues}  ~{N} lines removable
 ─────────────────────────────────────────────────────────────────
 ```
 
