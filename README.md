@@ -37,6 +37,23 @@ This project provides a structured command pipeline that turns a feature idea in
 It is designed for serious brownfield development where vague prompts are not enough.
 
 
+## Quick Start
+
+```bash
+# Clone the repository
+git clone https://github.com/<your-org>/prd-pipeline.git
+cd prd-pipeline
+
+# Install for your agent runtime (see "Installation by Agent Runtime" below)
+# Example for OpenCode (project-level):
+mkdir -p .opencode/commands
+cp prd-*.md .opencode/commands/
+
+# Run the first command
+/prd-discover "your feature idea"
+```
+
+
 ## Why This Exists
 
 AI coding agents are fast, but they are also literal.
@@ -501,7 +518,7 @@ These are useful but not mandatory:
 ├── README.md
 ├── LICENSE
 ├── assets/
-│   └── logo.svg
+│   └── logo.png
 ├── prd-discover.md
 ├── prd-write.md
 ├── prd-plan.md
@@ -509,7 +526,9 @@ These are useful but not mandatory:
 ├── prd-validate.md
 ├── prd-implement.md
 ├── prd-review.md
-└── prd-pr.md
+├── prd-pr.md
+├── prd-ponytail-audit.md
+└── prd-ponytail-review.md
 ```
 
 
@@ -559,11 +578,20 @@ It also supports personal commands in:
 
 A Markdown filename becomes the slash command name.
 
-Install:
+Install from this repository:
 
 ```bash
-mkdir -p .claude/commands
-cp commands/\*.md .claude/commands/
+git clone https://github.com/<your-org>/prd-pipeline.git
+cd prd-pipeline
+mkdir -p /path/to/your/project/.claude/commands
+cp prd-\*.md /path/to/your/project/.claude/commands/
+```
+
+Or for personal (global) commands:
+
+```bash
+mkdir -p \~/.claude/commands
+cp prd-\*.md \~/.claude/commands/
 ```
 
 Expected structure:
@@ -577,7 +605,9 @@ Expected structure:
 ├── prd-validate.md
 ├── prd-implement.md
 ├── prd-review.md
-└── prd-pr.md
+├── prd-pr.md
+├── prd-ponytail-audit.md
+└── prd-ponytail-review.md
 ```
 
 Run:
@@ -604,11 +634,19 @@ for project commands, and:
 
 for global commands. The Markdown filename becomes the command name, and command templates can use `$ARGUMENTS` and positional placeholders such as `$1`, `$2`, and `$3`.
 
-Install:
+Install from this repository:
 
 ```bash
+git clone https://github.com/<your-org>/prd-pipeline.git
+
+# Project-level install
+cd /path/to/your/project
 mkdir -p .opencode/commands
-cp commands/\*.md .opencode/commands/
+cp /path/to/prd-pipeline/prd-\*.md .opencode/commands/
+
+# Or global install
+mkdir -p \~/.config/opencode/commands
+cp /path/to/prd-pipeline/prd-\*.md \~/.config/opencode/commands/
 ```
 
 Expected structure:
@@ -622,7 +660,9 @@ Expected structure:
 ├── prd-validate.md
 ├── prd-implement.md
 ├── prd-review.md
-└── prd-pr.md
+├── prd-pr.md
+├── prd-ponytail-audit.md
+└── prd-ponytail-review.md
 ```
 
 Run:
@@ -637,17 +677,17 @@ Run:
 
 Codex custom prompts are documented as deprecated by OpenAI. OpenAI recommends using skills for reusable instructions.
 
-Recommended approach:
-
-* Adapt these command files into Codex skills if your Codex setup supports skills.
-* Keep each PRD command as a separate reusable instruction.
-* Preserve `$ARGUMENTS`-style placeholders manually if your skill format differs.
-
-Legacy custom prompt install, if you still choose to use the deprecated prompt mechanism:
+Install from this repository:
 
 ```bash
+git clone https://github.com/<your-org>/prd-pipeline.git
+
+# If using Codex skills (recommended):
+# Adapt command files into Codex skills manually.
+
+# Legacy custom prompts (deprecated):
 mkdir -p \~/.codex/prompts
-cp commands/\*.md \~/.codex/prompts/
+cp /path/to/prd-pipeline/prd-\*.md \~/.codex/prompts/
 ```
 
 Important limitations:
@@ -703,11 +743,12 @@ Example `plugin.json`:
 }
 ```
 
-Install manually:
+Install from this repository:
 
 ```bash
+git clone https://github.com/<your-org>/prd-pipeline.git
 mkdir -p \~/.gemini/antigravity-cli/plugins/prd-pipeline/skills
-cp commands/\*.md \~/.gemini/antigravity-cli/plugins/prd-pipeline/skills/
+cp /path/to/prd-pipeline/prd-\*.md \~/.gemini/antigravity-cli/plugins/prd-pipeline/skills/
 cat > \~/.gemini/antigravity-cli/plugins/prd-pipeline/plugin.json <<'EOF'
 {
   "$schema": "https://antigravity.google/schemas/v1/plugin.json",
@@ -725,11 +766,15 @@ Then restart or reload Antigravity CLI so it can discover the plugin/skills.
 
 For agents that support Markdown slash commands but use a different folder:
 
-1. Create the runtime’s command/skill directory.
-2. Copy each `prd-\*.md` file into that directory.
-3. Confirm filenames map to slash commands.
-4. Update tool names in frontmatter if your MCP names differ.
-5. Run `/prd-discover "feature idea"`.
+1. Clone this repository:
+   ```bash
+   git clone https://github.com/<your-org>/prd-pipeline.git
+   ```
+2. Create the runtime's command/skill directory.
+3. Copy each `prd-\*.md` file from the cloned repo into that directory.
+4. Confirm filenames map to slash commands.
+5. Update tool names in frontmatter if your MCP names differ.
+6. Run `/prd-discover "feature idea"`.
 
 Minimum required files:
 
@@ -913,33 +958,9 @@ This project is not affiliated with Ponytail, Superpowers, GitHub Spec Kit, Open
 
 
 
-## Open Sourcing
+## License
 
-You can open source this project if:
-
-* you own the command text or have permission to publish it
-* you remove private project names, internal paths, secrets, proprietary workflows, and company/client references
-* you include a license
-* you avoid copying license-incompatible text from other projects
-* you clearly document required external tools and MCP assumptions
-
-Recommended license options:
-
-* MIT for maximum reuse with minimal restrictions
-* Apache-2.0 for a permissive license with explicit patent language
-* GPLv3 if you want distributed derivatives to remain open source
-
-Add the license text as:
-
-```text
-LICENSE
-```
-
-or:
-
-```text
-LICENSE.md
-```
+This project is licensed under the MIT License — see the [LICENSE](./LICENSE) file for details.
 
 
 
