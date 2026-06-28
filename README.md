@@ -41,7 +41,7 @@ It is designed for serious brownfield development where vague prompts are not en
 
 ```bash
 # Clone the repository
-git clone https://github.com/<your-org>/prd-pipeline.git
+git clone https://github.com/rashee1997/prd-pipeline.git
 cd prd-pipeline
 
 # Install for your agent runtime (see "Installation by Agent Runtime" below)
@@ -579,7 +579,7 @@ A Markdown filename becomes the slash command name.
 Install from this repository:
 
 ```bash
-git clone https://github.com/<your-org>/prd-pipeline.git
+git clone https://github.com/rashee1997/prd-pipeline.git
 cd prd-pipeline
 mkdir -p /path/to/your/project/.claude/commands
 cp prd-\*.md /path/to/your/project/.claude/commands/
@@ -633,7 +633,7 @@ for global commands. The Markdown filename becomes the command name, and command
 Install from this repository:
 
 ```bash
-git clone https://github.com/<your-org>/prd-pipeline.git
+git clone https://github.com/rashee1997/prd-pipeline.git
 
 # Project-level install
 cd /path/to/your/project
@@ -674,7 +674,7 @@ Codex custom prompts are documented as deprecated by OpenAI. OpenAI recommends u
 Install from this repository:
 
 ```bash
-git clone https://github.com/<your-org>/prd-pipeline.git
+git clone https://github.com/rashee1997/prd-pipeline.git
 
 # If using Codex skills (recommended):
 # Adapt command files into Codex skills manually.
@@ -740,7 +740,7 @@ Example `plugin.json`:
 Install from this repository:
 
 ```bash
-git clone https://github.com/<your-org>/prd-pipeline.git
+git clone https://github.com/rashee1997/prd-pipeline.git
 mkdir -p \~/.gemini/antigravity-cli/plugins/prd-pipeline/skills
 cp /path/to/prd-pipeline/prd-\*.md \~/.gemini/antigravity-cli/plugins/prd-pipeline/skills/
 cat > \~/.gemini/antigravity-cli/plugins/prd-pipeline/plugin.json <<'EOF'
@@ -762,7 +762,7 @@ For agents that support Markdown slash commands but use a different folder:
 
 1. Clone this repository:
    ```bash
-   git clone https://github.com/<your-org>/prd-pipeline.git
+   git clone https://github.com/rashee1997/prd-pipeline.git
    ```
 2. Create the runtime's command/skill directory.
 3. Copy each `prd-\*.md` file from the cloned repo into that directory.
