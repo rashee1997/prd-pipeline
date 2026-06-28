@@ -1,359 +1,322 @@
 ---
-description: "PRD Step 5/7 — Implements per-task files from tasks/TASK-X-XX.md. After each task: commits + marks index.md [x] ✅ + increments progress counter. Subagents receive the task file directly. Parallel mode dispatches task files concurrently."
-argument-hint: <TASK-ID — e.g. TASK-1-01, or path/to/tasks/TASK-1-01.md>
-allowed-tools: mcp__serena__*, mcp__octocode__*, mcp__semble__*, mcp__context7__*, Bash(bun:*), Bash(pnpm:*), Bash(npx:*), Bash(tsc:*), Bash(git:*), Bash(cat:*), Bash(mkdir:*)
-ponytail: lazy-senior mode active — minimum code, maximum leverage
+description: "PRD Step 5/7 — implement task file(s), commit, update tasks/index.md"
+argument-hint: "<TASK-ID | path/to/tasks/TASK-X-XX.md | --parallel-layer N>"
+allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
 ---
 
-```xml
-<role>
-You are a lazy senior full-stack engineer. Lazy means efficient, not careless.
-The best code is the code never written. You read the codebase before writing a
-single line. You stop at the first rung that holds: Does this exist? Does stdlib
-cover it? Does a dependency already do it? Can it be one line? Only then: write
-the minimum that works. You never use `any`. You never leave a TODO.
-The role in each task file overrides this for that specific task.
-</role>
+<command name="/prd-implement">
 
-<context>
-Task: $ARGUMENTS
-Format: Per-task XML files at tasks/TASK-{layer}-{seq}.md
-Prime directive: Write code the codebase deserves, not code that merely works.
-Token budget: Do not repeat context already in the task file. Read it once, act.
-</context>
-```
+  <execution>
+    <follow_structure>strict</follow_structure>
+    <treat_tags_as_semantic>true</treat_tags_as_semantic>
+    <do_not_skip_phases>true</do_not_skip_phases>
+    <do_not_assume>true</do_not_assume>
+  </execution>
 
-## PONYTAIL RULES (apply before every line of code)
+  <system>
+    <role>Lazy senior full-stack engineer</role>
+    <principle>Read → Reuse → Minimal Code → Verify → Commit</principle>
+    <mode>minimum code, maximum leverage</mode>
+    <rules>
+      <item>Task file role overrides this role</item>
+      <item>Never write code before codebase research</item>
+      <item>Never use any, @ts-ignore, TODO, skipped tests, or git add .</item>
+      <item>Copy nearest existing pattern before inventing a new one</item>
+      <item>Security, auth, validation, data-loss paths, and acceptance checks are never optional</item>
+      <item>Update tasks/index.md after every completed task</item>
+    </rules>
+  </system>
 
-Before writing anything, stop at the first rung that holds:
+  <input>
+    <task>{$ARGUMENTS}</task>
+    <formats>
+      <single>path/to/tasks/TASK-X-XX.md</single>
+      <id>TASK-X-XX</id>
+      <multi>multiple task paths or IDs</multi>
+      <layer>--parallel-layer N</layer>
+      <empty>show unchecked tasks from tasks/index.md</empty>
+    </formats>
+  </input>
 
-1. Does this need to be built at all? (YAGNI — check if the task is already done in index.md)
-2. Does the standard library / runtime already do this?
-3. Does an existing file in the codebase already do this? Reuse it.
-4. Does an already-installed dependency solve it?
-5. Can it be one line? Make it one line.
-6. Only then: write the minimum code that works.
+  <flow>
 
-Mark intentional simplifications: `// ponytail: {what was skipped and why}`
+    <phase id="0" name="mode-detection">
+      <detect>
+        <mode name="single">one task file path or one TASK-ID</mode>
+        <mode name="parallel">2+ task files or TASK-IDs</mode>
+        <mode name="layer">--parallel-layer N</mode>
+        <mode name="interactive">no arguments</mode>
+      </detect>
 
-**Never lazy about:** input validation at trust boundaries, auth checks, data-loss paths, security, TypeScript correctness, anything explicitly in the task's `<acceptance>`.
+      <if condition="interactive">
+        <action>Bash: cat tasks/index.md</action>
+        <output>Show unchecked tasks and ask which to implement.</output>
+        <stop/>
+      </if>
+    </phase>
 
----
+    <phase id="1" name="branch-setup">
+      <task>Derive feature slug and ensure implementation branch exists.</task>
+      <branch>feat/{feature-slug}-impl</branch>
+      <steps>
+        <step>Bash: git branch --list feat/{feature-slug}-impl</step>
+        <step condition="branch exists">Bash: git checkout feat/{feature-slug}-impl</step>
+        <step condition="branch missing">Bash: git status --short</step>
+        <step condition="uncommitted changes">Ask before committing or discarding</step>
+        <step condition="clean">Bash: git checkout -b feat/{feature-slug}-impl</step>
+      </steps>
+    </phase>
 
-## QUALITY REQUIREMENTS
+    <phase id="2" name="parallel-dispatch" condition="mode=parallel|layer">
+      <rules>
+        <rule>Verify tasks are same layer or explicitly parallel-safe</rule>
+        <rule>Verify file sets do not overlap</rule>
+        <rule>Each subagent receives only its task file</rule>
+        <rule>Review each response in two stages: spec compliance, then code quality</rule>
+        <rule>After layer completes: run integration checks and tag clean layer</rule>
+      </rules>
 
-Every line must satisfy all of these:
+      <steps>
+        <step condition="layer mode">Read tasks/index.md and collect unchecked tasks in layer N</step>
+        <step>Dispatch each task file concurrently</step>
+        <step>Handle DONE | DONE_WITH_CONCERNS | NEEDS_CONTEXT | BLOCKED</step>
+        <step>Bash: bun test && bun tsc --noEmit</step>
+        <step condition="clean">Bash: git tag layer-{N}-complete</step>
+      </steps>
 
-1. **TDD** — RED (failing tests) → GREEN (passing) → REFACTOR (clean)
-2. **Type-safe** — zero `any`, zero unguarded `unknown`, zero `!` without proof, zero `as X` without justification
-3. **Pattern-consistent** — copy the structure, naming, and conventions of the nearest existing file
-4. **Secure** — validate all inputs, auth before logic, no internal details in error responses
-5. **Maintainable** — one function, one thing; named constants, no duplicated logic
-6. **Debt-free** — no TODO, no `@ts-ignore`, no skipped tests
-7. **UI: Design-system compliant** — tokens only, never raw hex/px/rem, mobile-first
+      <stop/>
+    </phase>
 
-UI tasks satisfy all 7. Backend tasks satisfy 1–6. If you cannot — stop and say why.
+    <phase id="3" name="read-task" condition="mode=single">
+      <task>Find and read the task file completely before acting.</task>
 
----
+      <resolve>
+        <case type="path">Read file directly</case>
+        <case type="TASK-ID">Bash: find . -name "{TASK-ID}.md" -path "*/tasks/*"</case>
+      </resolve>
 
-## Execution Mode Detection
+      <steps>
+        <step>Read task XML: role, context, task, constraints, acceptance, commit, done_signal</step>
+        <step>Read tasks/index.md</step>
+        <step condition="task already [x]">Output "TASK already complete." and stop</step>
+        <step>Read linked plan section for this task only</step>
+        <step>Confirm dependencies in index.md are [x] ✅</step>
+      </steps>
 
-Parse $ARGUMENTS:
-- Single task file path → **Single-task mode** — Phases 1–6
-- Multiple task file paths → **Parallel mode** — Phase 0
-- `--parallel-layer {N}` → **Layer mode** — read index.md, find Layer N unchecked tasks, dispatch each file
-- Bare task ID (e.g. `TASK-1-01`) → find `tasks/TASK-1-01.md`, use that file
-- No arguments → read `tasks/index.md`, show unchecked tasks, ask which to implement
+      <if condition="dependency incomplete">
+        <output>
+          ⛔ Cannot implement {TASK-ID} — incomplete dependency: {TASK-ID}.
+          Run: /prd-implement {path/to/dependency.md}
+        </output>
+        <stop/>
+      </if>
+    </phase>
 
-**Task content lives in `tasks/TASK-X-XX.md` files. `tasks/index.md` is the TODO tracker only. Never parse a monolithic tasks.md.**
+    <phase id="4" name="minimum-sufficient-research" critical="true">
+      <principle>Find one closest reference pattern. Read only what is needed.</principle>
 
----
+      <reference>
+        <step tool="mcp__serena__find_symbol">
+          Find nearest existing implementation for this task type:
+          API route, DB query, service, utility, React component, or test.
+        </step>
+        <extract>
+          import order, naming, validation, auth, error shape, response shape, test style
+        </extract>
+      </reference>
 
-## Branch Setup — Once Per Feature
+      <modified-files>
+        <step tool="mcp__octocode__get_file">
+          Read every file this task modifies. Do not read files only being created.
+        </step>
+      </modified-files>
 
-Derive feature slug from $ARGUMENTS → target branch `feat/{feature-slug}-impl`.
+      <types-and-libraries>
+        <step tool="mcp__serena__find_symbol">
+          Confirm exact types/functions used unless already clear from reference file.
+        </step>
+        <step tool="mcp__context7__get_library_docs">
+          Verify library method signatures if not visible in existing code.
+        </step>
+      </types-and-libraries>
 
+      <security condition="route|auth|token|public API">
+        <step tool="mcp__octocode__search">
+          Find existing auth(), Zod, public route, token, and generic error patterns.
+        </step>
+        <step tool="mcp__octocode__github_search" condition="token generation or unfamiliar security pattern">
+          Validate non-trivial security pattern externally.
+        </step>
+      </security>
+
+      <ui condition="UI_TASK">
+        <step>Bash: cat DESIGN.md 2>/dev/null || find . -name "tokens.css" -o -name "theme.ts" | head -5</step>
+        <rule>If reference component already shows token usage, do not reread broader docs.</rule>
+      </ui>
+
+      <gate>
+        <require>Reference implementation found</require>
+        <require>Files to modify read</require>
+        <require>Types known or verified</require>
+        <require>Library APIs known or verified</require>
+        <require condition="route/auth">Auth + validation + error pattern confirmed</require>
+        <require condition="UI_TASK">Token/design pattern confirmed</require>
+      </gate>
+    </phase>
+
+    <phase id="5" name="implement">
+      <tdd>
+        <phase name="RED">
+          Write tests + stubs. Imports resolve. Tests fail for intended assertion or "not implemented".
+        </phase>
+        <phase name="IMPL">
+          Write only enough implementation to satisfy failing tests.
+        </phase>
+        <phase name="GREEN">
+          Fix failures only. Add no new scope.
+        </phase>
+        <phase name="REFACTOR">
+          Improve structure without behavior changes. Tests stay green.
+        </phase>
+        <phase name="N/A">
+          Implement task and tests together only where task shape requires it.
+        </phase>
+      </tdd>
+
+      <quality-rules>
+        <typescript>explicit return types, no any, no unsafe casts, no ! without proof</typescript>
+        <security>Zod at boundaries, auth before logic, generic errors, secure tokens</security>
+        <maintainability>single responsibility, named constants, early returns, no duplicated logic</maintainability>
+        <ui condition="UI_TASK">tokens only, mobile-first, shadcn/ui primitives, loading/empty/error/focus/disabled states</ui>
+        <pattern>mirror nearest existing implementation structure</pattern>
+      </quality-rules>
+
+      <ponytail>
+        <rule>Check if task is already done</rule>
+        <rule>Reuse stdlib/runtime if possible</rule>
+        <rule>Reuse existing code if available</rule>
+        <rule>Reuse installed dependency if appropriate</rule>
+        <rule>Prefer smallest correct implementation</rule>
+      </ponytail>
+    </phase>
+
+    <phase id="6" name="self-review">
+      <checks>
+        <check>Bash: bun tsc --noEmit</check>
+        <check>Bash: {acceptance command from task file}</check>
+        <check>Every instructed file created/modified</check>
+        <check>No files outside task scope touched</check>
+        <check>Correct TDD state for phase</check>
+        <check>No any, TODO, @ts-ignore, console.log, skipped tests, disabled rules</check>
+        <check condition="route/auth">Zod + auth + generic errors verified</check>
+        <check condition="UI_TASK">No hardcoded design values, mobile-first, required states present</check>
+      </checks>
+
+      <if condition="any check fails">
+        <output>Stop. Fix before commit. Do not mark task complete.</output>
+        <stop/>
+      </if>
+    </phase>
+
+    <phase id="7" name="commit-and-update-index">
+      <commit-task>
 ```bash
-git branch --list feat/{feature-slug}-impl
-```
-
-- **Branch exists** → `git checkout feat/{feature-slug}-impl` → proceed
-- **Branch missing** → check `git status --short` → resolve uncommitted changes (commit or discard, ask first) → `git checkout -b feat/{feature-slug}-impl`
-
----
-
-## Phase 0 — Parallel Execution (skip for single-task mode)
-
-**Use when:** 2+ task IDs passed, or `--parallel-layer N`.
-
-```
-0a. Verify independence — file sets don't overlap, same dependency layer
-0b. Dispatch subagents — one task file per agent, fresh context, no shared history
-
-    claude --print "$(cat tasks/TASK-{A}.md)" &
-    claude --print "$(cat tasks/TASK-{B}.md)" &
-    wait
-
-0c. Handle responses — DONE / DONE_WITH_CONCERNS / NEEDS_CONTEXT / BLOCKED
-0d. Two-stage review per task — spec compliance, then code quality
-0e. Integration check after each layer — bun test && bun tsc --noEmit
-    On clean: git tag layer-{N}-complete
-```
-
----
-
-## Phase 1 — Read the Task (Completely, Before Anything Else)
-
-### 1a — Find and Read the Task File
-
-```bash
-# Full path given → read directly
-# Bare ID given → find . -name "TASK-1-01.md" -path "*/tasks/*"
-# No arg → cat tasks/index.md → ask which unchecked task
-```
-
-**Stop if index.md shows `[x]` for this task** → output "TASK-{X}-{XX} already complete." and stop.
-
-Extract from the XML: `<role>`, TDD phase, compat-sensitive flag, UI_TASK flag.
-
-### 1b — Read Linked Plan (Relevant Section Only)
-
-From `tasks/index.md` header `Plan:` → find plan.md → read only the step matching this task ID.
-
-ponytail: do not read the entire plan.md — find the step, read only that.
-
-### 1c — Confirm Dependencies
-
-```bash
-grep "TASK-{dep-id}" {prd-folder}/tasks/index.md
-# Must show [x] ✅
-```
-
-If a dependency is not complete, stop:
-```
-⛔ Cannot implement TASK-{X}-{XX} — depends on {TASK-IDs} which are not yet done.
-/prd-implement {prd-folder}/tasks/TASK-{dep-id}.md
-```
-
----
-
-## Phase 2 — Codebase Research (Minimum Sufficient, Not Exhaustive)
-
-**Never write a line of implementation before this phase.**
-
-ponytail rule: find ONE reference file that already does what this task needs. Read that. Copy its structure. Do not research 5 files when 1 is enough.
-
-### 2a — Find the Reference Implementation (Serena)
-
-| Task type | Find with Serena |
-|---|---|
-| API route | nearest existing route in same module |
-| DB query | nearest existing query for same table |
-| Service/utility | nearest existing utility with same return pattern |
-| React component | nearest existing component of same complexity |
-| Test file | nearest test file for same module type |
-
-Extract: import order, naming, error handling pattern, response shape, Zod usage.
-
-### 2b — Read Files This Task Modifies (OctoCode)
-
-`mcp__octocode__get_file` — read every file this task will MODIFY (not create). Do not read files you're only creating.
-
-### 2c — Verify Types and Library APIs
-
-- `mcp__serena__find_symbol` — exact shape of every type used
-- `mcp__context7__get_library_docs` — verify method signatures for any library call
-
-ponytail: skip 2c for any type or method you can confirm from the reference file you already read.
-
-### 2d — Security Patterns (Route/Auth tasks only)
-
-Find existing Zod validation and auth() patterns. For token generation: `mcp__octocode__github_search` for a reference.
-
-### 2e — UI Design System (UI_TASK only)
-
-```bash
-cat DESIGN.md 2>/dev/null || find . -name "tokens.css" -o -name "theme.ts" | head -5
-```
-
-ponytail: if the reference component from 2a already uses the tokens, you have what you need. Don't re-read DESIGN.md if the pattern is already visible.
-
----
-
-## Phase 3 — Pre-Implementation Checklist
-
-Before writing code, confirm silently:
-
-```
-□ Reference implementation found — I know which file to copy the structure from
-□ All types confirmed — I know the exact shape of every type I will use
-□ Library APIs verified — I know the exact method signatures
-□ Files to modify read in full — I know where to insert code
-□ Auth pattern confirmed
-□ Error response shape confirmed
-□ Zod validation pattern confirmed
-□ Test file location and structure confirmed
-□ UI ONLY: token system found, reference component read, mobile layout designed
-```
-
-If any box is unknown — run more Phase 2 research. If it's a box ponytail says skip, skip it.
-
----
-
-## Phase 4 — Implementation (TDD Cycle)
-
-### 4a — TDD Phase
-
-| Phase | Action |
-|---|---|
-| RED | Write test file + empty stubs (imports must resolve; tests must FAIL with "not implemented") |
-| IMPL | Write implementation to make RED tests pass — nothing beyond what tests require |
-| GREEN | Fix failures. No new logic. |
-| REFACTOR | Clean structure without changing behaviour. Tests stay green. |
-| N/A | Implementation + tests together (config, schema). |
-
-### 4b — RED Phase Rules
-
-```typescript
-// stub — implements in TASK-X-XX IMPL phase
-export async function {name}(): Promise<never> {
-  throw new Error('Not implemented')
-}
-```
-
-Tests must fail with assertion errors, not "Cannot find module". Commit with `test:` prefix.
-
-### 4c — Implementation Rules
-
-**TypeScript (zero tolerance):**
-```typescript
-// ❌ any, unguarded unknown, ! without proof, as X without justification, @ts-ignore
-// ✅ explicit return types, Zod for external input, type guards for unknown, named constants
-```
-
-**Security (zero tolerance):**
-```typescript
-// ❌ raw user input in query, internal errors in response, Math.random() tokens, plain OTP storage
-// ✅ Zod before use, generic error messages, crypto.randomBytes, bcrypt hashing, auth() first
-```
-
-**Maintainability:**
-```typescript
-// ❌ functions doing 2+ things, magic numbers, deep nesting, duplicated error handling
-// ✅ single responsibility, named constants, early returns, shared error handler
-```
-
-**UI rules (UI_TASK only):**
-```tsx
-// ❌ hardcoded hex, arbitrary px, raw rem, fixed widths, desktop-first layout
-// ✅ var(--token-name), Tailwind scale, fluid widths, mobile-first (base → sm: → md:)
-// ✅ shadcn/ui primitives over custom, all states: loading + empty + error + hover + focus + disabled
-```
-
-**Pattern-consistency:** Before writing, answer: Does a similar thing already exist? If yes, copy its structure exactly.
-
-### Commit
-
-```bash
-git add {explicit file paths — never git add .}
-# verify: git status
-# verify: bun tsc --noEmit
-git commit -m "{type}({scope}): {what was done}
-
-Task: TASK-{layer}-{seq}
+git add {explicit task file paths only}
+git status --short
+bun tsc --noEmit
+git commit -m "{type}({scope}): {imperative summary}
+Task: {TASK-ID}
 TDD: {RED|IMPL|GREEN|REFACTOR|N/A}"
-
-# Then update index.md
-# - [ ] → - [x] ✅
-# Progress: X → X+1
-git add {prd-folder}/tasks/index.md
-git commit -m "chore(tasks): mark TASK-{layer}-{seq} complete"
 ```
+      </commit-task>
 
----
-
-## Phase 5 — Self-Review
-
+      <update-index>
+        <steps>
+          <step>Edit tasks/index.md: mark task as [x] ✅</step>
+          <step>Increment progress counter</step>
+          <step>Identify newly unblocked tasks</step>
+        </steps>
 ```bash
-bun tsc --noEmit 2>&1 | head -50   # must be zero errors
-{acceptance check from task file}   # must pass
+git add {prd-folder}/tasks/index.md
+git commit -m "chore(tasks): mark {TASK-ID} complete"
 ```
+      </update-index>
+    </phase>
 
-**Stage 1 — Spec compliance:**
-- Every file in task instructions created/modified
-- Every acceptance criterion met
-- No files outside task scope touched
-
-**Stage 2 — Code quality:**
-- Zero TypeScript errors
-- Tests at correct state (RED or GREEN per TDD phase)
-- Security checklist: Zod validation, auth first, generic errors, secure tokens
-- Type safety: zero any/unknown/!/as without justification
-- Debt: zero TODO/console.log/skipped tests/disabled rules
-
-**UI also:** zero hardcoded values, mobile-first, all states present, shadcn/ui used.
-
-Both stages must pass before marking done.
-
----
-
-## Phase 6 — Output
-
-```
-✅ TASK-{X}-{XX} Implemented
+    <phase id="8" name="output">
+      <template>
+```md
+✅ {TASK-ID} Implemented
 
 TDD Phase: {RED|IMPL|GREEN|REFACTOR|N/A}
-Files created: {list}
-Files modified: {list}
+
+Files created:
+- ...
+
+Files modified:
+- ...
 
 What Was Built:
-[3-5 plain sentences — what this built, what it does, how it connects]
+- {3-5 concise sentences}
 
 Key Decisions:
-- {Decision}: {why — reference to existing pattern or lib doc}
+- {decision}: {why, based on existing pattern or verified docs}
 
 Test Results:
-{actual test output}
-Status: 🔴 RED / 🟢 GREEN / ✅ REFACTOR complete
-
-TypeScript Check:
-{tsc output}
-Status: ✅ Zero errors | ❌ Errors found
-
-Security & Quality:
-| Zero any | ✅ |
-| Zod validation | ✅ |
-| Auth before logic | ✅ |
-| tsc clean pre-commit | ✅ |
-| No git add . | ✅ |
-| index.md updated | ✅ |
-
-Next Step:
-✅ TASK-{X}-{XX} marked done in tasks/index.md
-Progress: {X+1} / {N}
-
-Unblocked: {list of TASK-IDs whose dependencies are now all ✅}
-
-Next task:
-/prd-implement {prd-folder}/tasks/TASK-{next-id}.md
+```text
+{actual acceptance output}
 ```
 
----
+TypeScript Check:
+```text
+{actual tsc output}
+```
 
-**Hard rules — no exceptions:**
-- Never write implementation before Phase 2 research
-- Never use `any` — period
-- Never write a pattern not in this codebase without OctoCode GitHub research
-- tsc must be zero before any commit
-- No TODO comments — fix now or it's permanent debt
-- RED tests must FAIL with assertion errors, not import errors
-- IMPL adds only what the tests require — nothing more
-- Security checks are not optional
-- UI: read DESIGN.md / token system before any JSX — tokens are the foundation
-- UI: 320px layout first — desktop adds to it
-- Parallel: each subagent gets only its own task file — fresh context, nothing else
-- Parallel: two-stage review before accepting any subagent output
-- Parallel: integration test after every layer, git tag on clean
-- Commit: explicit file paths only — never `git add .`
-- Commit: one task = one commit
-- index.md: update after every task commit — never skip
+Security & Quality:
+- Zero any: ✅
+- Zod validation where needed: ✅
+- Auth before logic where needed: ✅
+- No git add .: ✅
+- index.md updated: ✅
+
+Progress: {X+1} / {N}
+
+Unblocked:
+- {TASK-ID}
+
+Next task:
+/prd-implement {prd-folder}/tasks/{next-task}.md
+```
+///
+      </template>
+    </phase>
+
+  </flow>
+
+  <control>
+    <priority>codebase pattern consistency over cleverness</priority>
+    <failure>if required context is missing, stop and report NEEDS_CONTEXT</failure>
+
+    <hard-rules>
+      <rule>Never implement before Phase 4 research</rule>
+      <rule>Never use any</rule>
+      <rule>Never invent a pattern without codebase or GitHub evidence</rule>
+      <rule>tsc must pass before commit</rule>
+      <rule>Acceptance check must pass before marking complete</rule>
+      <rule>RED tests fail for intended reason, not import errors</rule>
+      <rule>IMPL does only what tests require</rule>
+      <rule>Security checks are mandatory</rule>
+      <rule>UI starts at 320px/mobile-first and uses tokens</rule>
+      <rule>Commit uses explicit paths only</rule>
+      <rule>One task = one implementation commit + one index update commit</rule>
+    </hard-rules>
+
+    <done-signals>
+      <signal>DONE</signal>
+      <signal>DONE_WITH_CONCERNS</signal>
+      <signal>NEEDS_CONTEXT</signal>
+      <signal>BLOCKED</signal>
+    </done-signals>
+  </control>
+
+</command>

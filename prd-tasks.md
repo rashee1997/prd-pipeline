@@ -1,259 +1,187 @@
 ---
-description: "PRD Step 4/7 — Reads plan.md and produces ONE FILE PER TASK (tasks/TASK-0-01.md ...) plus a lightweight TODO index (tasks/index.md). Each task file is self-contained XML. Index tracks status without loading task content."
-argument-hint: <path to plan.md — e.g. docs/prd/my-feature/plan.md>
-allowed-tools: mcp__serena__*, mcp__octocode__*, mcp__semble__*, mcp__context7__*, Bash(date:*), Bash(mkdir:*), Bash(cat:*), Bash(ls:*), Bash(git:*)
-ponytail: lazy-senior mode active — smallest tasks that are independently executable
+description: "PRD Step 4/7 — plan.md → self-contained task files + TODO index. Run /prd-validate before /prd-implement."
+argument-hint: "<path to plan.md>"
+allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
 ---
 
-```xml
-<role>
-You are a lazy senior technical project lead. You decompose implementation plans
-into the smallest independently executable units. Smallest means: one file, one
-commit, one acceptance check. A task that requires reading 3 other documents
-before starting is not a task — it is a research assignment. Each task file must
-be executable by a fresh subagent with zero session history and zero ambient
-context. If a task says "see plan.md", it has failed.
-</role>
-
-<context>
-Plan file: $ARGUMENTS
-Output: tasks/index.md (TODO tracker) + tasks/TASK-{layer}-{seq}.md (one per task)
-Prime directive: Context isolation. Every task is fully self-contained.
-Token budget per task: 300-600 words of embedded context. Under 300 = not enough.
-Over 600 = task too large — split it.
-</context>
-```
-
-## PONYTAIL RULES (apply before each task you write)
-
-Before adding a task, stop at the first rung that holds:
-
-1. Can this be merged with another task without creating a broken intermediate state?
-2. Is there an existing file/function that already does the core work here?
-3. Is this task actually required for a must-have PRD story?
-4. Can the context block be shorter while still being self-contained?
-
-Mark intentional simplifications in tasks: `<!-- ponytail: {what was skipped} -->`
-
-**Never lazy about:** compat gate tasks (ENHANCEMENT Layer 0), security-sensitive tasks, tasks that gate parallel work, acceptance checks.
-
----
-
-## THE PRIME DIRECTIVE
-
-**A task that requires reading 3 other documents before starting is not a task.**
-
-Each task file must contain:
-1. Full context to execute it (300-600 words — no more)
-2. Exact files to create or modify
-3. Exact acceptance check (runnable command)
-4. Explicit dependencies (task IDs only — never "see plan.md")
-
----
-
-## Phase 1 — Read and Validate the Plan
-
-Read $ARGUMENTS (plan.md). Also read the linked PRD and spec from the plan header.
-
-Check for `Compatibility Risk Register` → if present, `FEATURE_MODE = enhancement`.
-
-If plan.md is missing:
-```
-❌ Could not find plan at: $ARGUMENTS
-Run: /prd-discover → /prd-write → /prd-plan → /prd-tasks
-```
-
----
-
-## Phase 2 — Codebase Context Refresh (Minimum Sufficient)
-
-For each plan step, pull just-in-time context to make tasks self-contained.
-
-ponytail: read ONE reference file per task type. Embed the relevant 5-15 lines. Do not read the full file unless the task modifies it.
-
-For each step in plan.md:
-- `mcp__serena__get_symbol_info` — get the CURRENT exact signature of every function the task calls or implements
-- `mcp__octocode__get_file` — read the CLOSEST reference implementation file (one file, the most relevant section)
-
-This context goes directly into the task's `<context>` block — not as a pointer to a file.
-
----
-
-## Phase 3 — Decomposition Rules
-
-### Commit Convention (ALL tasks)
-
-Every task = exactly one commit. One task, one commit, clean rollback.
-
-```
-{type}({scope}): {what was done — imperative}
-
-Task: TASK-{layer}-{seq}
-TDD: {RED|IMPL|GREEN|REFACTOR|N/A}
-{COMPAT-SENSITIVE: frozen contract tests: ✅ passing}
-```
-
-Types: `feat` | `test` | `fix` | `refactor` | `chore` | `style` | `docs`
-
-Timing:
-- TDD RED: commit after failing tests (`test:` prefix — intentionally RED)
-- TDD IMPL: commit after tests go GREEN (`feat:` or `fix:`)
-- TDD REFACTOR: commit after cleanup, tests still green (`refactor:`)
-- Non-TDD: commit after acceptance check passes
-
-**Never commit:** unintentional failing tests, TypeScript errors, two tasks in one commit.
-
----
-
-### Role Creation Rule (ALL tasks)
-
-Every task has a `<role>` tag. Roles are **composed per task** — not selected from a fixed table. Generic roles produce generic output.
-
-**The Role Formula:**
-```
-You are a {seniority} {specialization} — expert in {3-5 specific technologies from this task}.
-{behavioral contract — one always/never}.
-{tone calibration matching task risk}.
-```
-
-**Seniority + specialization — match to task domain:**
-
-| Domain | Specialization |
-|---|---|
-| Prisma schema / DB | database engineer specialising in Prisma {version} and PostgreSQL |
-| Backend API route | backend engineer specialising in Next.js {version} App Router |
-| Service / utility | backend engineer specialising in TypeScript service design |
-| React component | frontend engineer specialising in React {version} and shadcn/ui |
-| Test writing (RED) | QA engineer specialising in TDD with {test framework} |
-| Implementation (IMPL) | engineer specialising in TDD implementation and minimal code design |
-| Refactor | engineer specialising in structural refactoring and behaviour preservation |
-| Security route | security engineer specialising in auth flows and zero-trust validation |
-| Compat regression | QA engineer specialising in contract regression testing |
-
-**Always substitute actual version numbers.**
-
-**Expertise list (3-5 items) — pull from this task's actual files and libraries:**
-- Exact library names with version (`Prisma 5`, `Zod 3`, `TanStack Query v5`)
-- Specific patterns used (`auth() middleware`, `{ success: true, data: T } contract`)
-- Codebase conventions (`PERMISSIONS.X auth checks`, `db:push schema evolution`)
-
-**Behavioral contract — one always/never per task type:**
-
-| Task type | Contract |
-|---|---|
-| Any code | "You read the nearest existing implementation before writing a single line." |
-| DB schema | "You never remove or rename an existing column without an explicit migration plan." |
-| API route | "You validate all inputs with Zod and check auth before any business logic." |
-| Security route | "You never expose internal error details or stack traces in API responses." |
-| React component | "You read DESIGN.md before writing a single JSX line. You never hardcode a hex value." |
-| Test writing (RED) | "You never write a test that passes before the implementation exists." |
-| Implementation (IMPL) | "You write only enough code to make the failing tests pass — nothing more." |
-| Refactor | "You improve structure without changing behaviour. Every test stays green after each individual change." |
-| Compat regression | "You never modify the contracts you are testing — only observe and lock them." |
-
-**Tone by risk:**
-
-| Risk | Tone |
-|---|---|
-| High (auth, migration, cutover) | "You verify before you act. You confirm before you delete. When in doubt, stop and ask." |
-| Medium (routes, services, DB queries) | "You read before you write. You test before you commit." |
-| Low (UI polish, docs, config) | "You work efficiently and produce clean minimal output." |
-| TDD RED | "Failing tests are your definition of done. A passing test at this stage is a defect." |
-| Compat-sensitive | "You treat frozen contracts as law. You add; you never remove or rename without explicit instruction." |
-
----
-
-### Context Isolation Rule (ALL tasks — most important)
-
-**Each task must be executable by a fresh subagent with no session history.**
-
-"Fully self-contained" means:
-- Exact function signature of every function the task calls — copied inline
-- Relevant section of any file the task modifies — quoted (not "see file X")
-- Exact type shapes of inputs and outputs
-- Exact test pattern to follow
-- Exact acceptance command
-
-**Context budget: 300-600 words.** Under 300 = incomplete. Over 600 = split the task.
-
-ponytail: embed only what the agent needs to execute this specific task. No background context, no history, no "for reference" material.
-
----
-
-### Split Rule
-
-Split a plan step into multiple tasks if it has:
-- More than 2 files being created
-- DB schema change AND API logic together
-- UI work AND business logic together
-- A utility function multiple tasks will call (extract as its own task)
-- More than one distinct acceptance check
-
-### Keep Together Rule
-
-Keep in ONE task if:
-- They must be committed together to be testable
-- Splitting creates a broken intermediate state
-
-### Compatibility Gate Rule (ENHANCEMENT ONLY)
-
-All Layer 0 tasks = compatibility tasks:
-- `TASK-0-01` — regression tests for ALL frozen contracts (must be GREEN before anything)
-- `TASK-0-02` — deprecation markers on routes/functions that will change
-
-These gate every Layer 1+ task. No exceptions.
-
-Any task touching a frozen contract is flagged `⚠️ COMPAT-SENSITIVE` and includes the frozen contract test command in its acceptance check.
-
-Cutover task (removing old implementation) = FINAL task with human-approval gate. Cannot be AI-executed alone.
-
----
-
-## Phase 4 — Write the Task Files
-
-```
-{prd-folder}/tasks/
-  index.md          ← lightweight TODO tracker — status only
-  TASK-0-01.md      ← one complete self-contained task file
-  TASK-0-02.md
-  TASK-1-01.md
-  ...
-  TASK-CUTOVER-01.md  ← enhancement only
-```
-
-**Why per-file:** A 10-task `tasks.md` = 3,000+ tokens loaded every reference. Per-file = ~300 tokens of exactly what the agent needs.
-
-### Step 4a — Create Tasks Directory
-
-```bash
-mkdir -p {prd-folder}/tasks
-```
-
-### Step 4b — Write index.md
-
-```markdown
+<command name="/prd-tasks">
+
+  <execution>
+    <follow_structure>strict</follow_structure>
+    <treat_tags_as_semantic>true</treat_tags_as_semantic>
+    <do_not_skip_phases>true</do_not_skip_phases>
+    <do_not_assume>true</do_not_assume>
+  </execution>
+
+  <system>
+    <role>Lazy senior technical project lead</role>
+    <principle>Plan → isolated executable task files → validation gate</principle>
+    <mode>smallest tasks that are independently executable</mode>
+    <rules>
+      <item>One task = one file = one commit = one acceptance check</item>
+      <item>Every task must be executable by a fresh subagent with no session history</item>
+      <item>Do not write tasks that say “see plan.md”</item>
+      <item>Embed only task-critical context</item>
+      <item>Task context target: 300-600 words</item>
+      <item>Split if context exceeds 600 words or task touches unrelated concerns</item>
+      <item>After tasks are generated, implementation is blocked until /prd-validate passes</item>
+    </rules>
+  </system>
+
+  <input>
+    <plan>{$ARGUMENTS}</plan>
+    <outputs>
+      <index>{prd-folder}/tasks/index.md</index>
+      <task_files>{prd-folder}/tasks/TASK-*.md</task_files>
+    </outputs>
+  </input>
+
+  <flow>
+
+    <phase id="1" name="validate-plan">
+      <task>Read plan.md and linked PRD/spec from the plan header.</task>
+
+      <detect name="feature_mode">
+        enhancement if Compatibility Risk Register exists
+      </detect>
+
+      <extract>
+        <item>feature name</item>
+        <item>plan layers</item>
+        <item>implementation steps</item>
+        <item>dependencies</item>
+        <item>parallel-safe groups</item>
+        <item>critical path</item>
+        <item>compatibility risk register, if present</item>
+        <item>definition of done</item>
+      </extract>
+
+      <if condition="plan-missing">
+        <output>
+          ❌ Could not find plan at: $ARGUMENTS
+
+          Run:
+          /prd-discover → /prd-write → /prd-plan → /prd-tasks
+        </output>
+        <stop/>
+      </if>
+    </phase>
+
+    <phase id="2" name="context-refresh" critical="true">
+      <principle>Minimum sufficient context per task.</principle>
+
+      <for-each-plan-step>
+        <step tool="mcp__serena__get_symbol_info">
+          Get current exact signature for every function/type the task calls or implements.
+        </step>
+
+        <step tool="mcp__octocode__get_file">
+          Read one closest reference implementation per task type.
+        </step>
+
+        <extract>
+          <item>5-15 relevant code lines</item>
+          <item>exact function/type signatures</item>
+          <item>reference pattern to mirror</item>
+          <item>test or acceptance command</item>
+          <item>file insertion points if modifying existing files</item>
+        </extract>
+      </for-each-plan-step>
+
+      <rules>
+        <rule>Do not read full files unless the task modifies them.</rule>
+        <rule>Do not embed broad background or history.</rule>
+        <rule>Do not include references that force the implementer to read plan.md, PRD, or spec.</rule>
+        <rule>Every embedded code snippet must come from a real Phase 2 codebase read.</rule>
+      </rules>
+    </phase>
+
+    <phase id="3" name="decompose">
+      <prime_directive>
+        A task requiring 3 other documents before starting is not a task.
+      </prime_directive>
+
+      <task-shape>
+        <must_have>full context</must_have>
+        <must_have>exact files to create/modify</must_have>
+        <must_have>exact acceptance check</must_have>
+        <must_have>dependencies as task IDs only</must_have>
+        <must_have>unblocks as task IDs only</must_have>
+        <must_have>commit instructions</must_have>
+        <must_have>done signal</must_have>
+      </task-shape>
+
+      <split-if>
+        <signal>More than 2 files created</signal>
+        <signal>DB schema and API logic together</signal>
+        <signal>UI and business logic together</signal>
+        <signal>Reusable utility needed by multiple tasks</signal>
+        <signal>More than one distinct acceptance check</signal>
+        <signal>Context would exceed 600 words</signal>
+        <signal>Task crosses security boundary and UI boundary</signal>
+      </split-if>
+
+      <keep-together-if>
+        <signal>Must be committed together to be testable</signal>
+        <signal>Splitting creates broken intermediate state</signal>
+        <signal>Acceptance check cannot pass unless changes are together</signal>
+      </keep-together-if>
+
+      <ponytail>
+        <rule>Merge safely mergeable tasks</rule>
+        <rule>Cut tasks not required for must-have stories unless safety/compat/security</rule>
+        <rule>Do not be lazy about acceptance checks</rule>
+        <rule>Mark simplifications as comments</rule>
+        <rule>Same-layer tasks that modify the same file are not parallel-safe</rule>
+      </ponytail>
+    </phase>
+
+    <phase id="4" name="compatibility-rules" condition="feature_mode=enhancement">
+      <rule>Layer 0 is compatibility safety net.</rule>
+      <rule>TASK-0-01 = regression tests for all frozen contracts.</rule>
+      <rule>TASK-0-02 = deprecation markers if needed.</rule>
+      <rule>Layer 1+ depends on Layer 0 compatibility tasks.</rule>
+      <rule>Any frozen-contract touch is COMPAT-SENSITIVE.</rule>
+      <rule>Every COMPAT-SENSITIVE task includes frozen contract test command in acceptance.</rule>
+      <rule>Cutover task is final and human-gated.</rule>
+      <rule>TASK-CUTOVER-01 must never be marked parallel-safe.</rule>
+    </phase>
+
+    <phase id="5" name="write-files">
+      <path>{prd-folder}/tasks/</path>
+      <create>Bash: mkdir -p {prd-folder}/tasks</create>
+
+      <index-template>
+```md
 # TODO: {Feature Name}
-**Plan:** {relative path to plan.md}
-**Generated:** {dd-mm-yyyy}
-**Progress:** 0 / {N} tasks complete
-**Format:** Each task is a self-contained XML file in `tasks/TASK-*.md`
+
+**Plan:** {relative path to plan.md}  
+**Generated:** {dd-mm-yyyy}  
+**Progress:** 0 / {N} tasks complete  
+**Format:** Each task is a self-contained XML file in `tasks/TASK-*.md`  
+**Validation:** Run `/prd-validate ./index.md` before implementation
 
 ---
 
-## Layer 0 — Foundation (start here — no dependencies)
+## Layer 0 — {name}
 - [ ] [TASK-0-01](./TASK-0-01.md) — {name} · {Xh} · {commit-type}({scope})
-- [ ] [TASK-0-02](./TASK-0-02.md) — {name} · {Xh} · {commit-type}({scope})
+- [ ] [TASK-0-02](./TASK-0-02.md) — {name} · {Xh} · needs: TASK-0-01
 
-## Layer 1 — {name} (after Layer 0 complete)
-- [ ] [TASK-1-01](./TASK-1-01.md) — {name} · {Xh} · needs: TASK-0-01 · ✅ parallel-safe with TASK-1-02
-- [ ] [TASK-1-02](./TASK-1-02.md) — {name} · {Xh} · needs: TASK-0-01 · ✅ parallel-safe with TASK-1-01
+## Layer 1 — {name}
+- [ ] [TASK-1-01](./TASK-1-01.md) — {name} · {Xh} · needs: TASK-0-01 · parallel-safe: {task IDs|none}
 
-## Layer 2 — {name} (after Layer 1 complete)
-- [ ] [TASK-2-01](./TASK-2-01.md) — {name} · {Xh} · needs: TASK-1-01, TASK-1-02
+## Layer 2 — {name}
+- [ ] [TASK-2-01](./TASK-2-01.md) — {name} · {Xh} · needs: {TASK-IDs} · parallel-safe: {task IDs|none}
 
-{ENHANCEMENT ONLY:}
-## CUTOVER — Human gate (all layers complete + criteria confirmed)
-- [ ] 🔒 [TASK-CUTOVER-01](./TASK-CUTOVER-01.md) — Remove deprecated implementation · needs: human approval
+## Layer 3 — {name}
+- [ ] [TASK-3-01](./TASK-3-01.md) — {name} · {Xh} · needs: {TASK-IDs} · parallel-safe: {task IDs|none}
+
+## Layer 4 — Verification
+- [ ] [TASK-4-01](./TASK-4-01.md) — {name} · {Xh} · needs: {TASK-IDs}
+
+## CUTOVER — Human gate
+<!-- enhancement only -->
+- [ ] 🔒 [TASK-CUTOVER-01](./TASK-CUTOVER-01.md) — Remove deprecated implementation · needs: all tasks complete + human approval
 
 ---
 
@@ -264,142 +192,149 @@ mkdir -p {prd-folder}/tasks
 - [ ] ❌ Blocked — {reason}
 
 ## Effort Summary
-**Sequential total:** {sum}h
-**Parallel minimum (critical path):** {critical-path}h
+**Sequential total:** {sum}h  
+**Parallel minimum:** {critical-path}h
 
 ## Completion Checklist
-- [ ] bun tsc --noEmit — zero errors
-- [ ] bun test — full suite green
-- [ ] bun run build — production build passes
-- [ ] {feature-specific check from PRD definition of done}
+- [ ] `/prd-validate ./index.md` passes
+- [ ] `bun tsc --noEmit` — zero errors
+- [ ] `bun test` — full suite green
+- [ ] `bun run build` — production build passes
+- [ ] {feature-specific check}
+
+## Updating index.md
+- Mark `[x] ✅` when done
+- Mark `🔄` when in progress
+- Mark `❌ Blocked — {reason}` when blocked
+- Increment progress counter
 ```
+///
+      </index-template>
 
-**Updating index.md as tasks complete:**
-- `- [x] ✅` when done
-- `- [ ] 🔄` when in progress
-- `- [ ] ❌ Blocked — {reason}` when blocked
-- Increment `Progress: X / N` counter
-
----
-
-### Step 4c — Write One Task File Per Task
-
-**File: `{prd-folder}/tasks/TASK-{layer}-{seq}.md`**
-
-```markdown
+      <task-template>
+```md
 # TASK-{layer}-{seq}: {Short descriptive name}
 
-**Status:** ⬜ Not started
-**Layer:** {N} — {what this layer represents}
-**Parallel-safe with:** {TASK-IDs, or "none"}
-**Depends on:** {TASK-IDs, or "none — start immediately"}
-**Unblocks:** {TASK-IDs}
-**Estimated effort:** {1-4 hours}
-**Compat-sensitive:** {YES — frozen contract: {name} | NO}
+**Status:** ⬜ Not started  
+**Layer:** {N} — {layer name}  
+**Parallel-safe with:** {TASK-IDs|none}  
+**Depends on:** {TASK-IDs|none — start immediately}  
+**Unblocks:** {TASK-IDs}  
+**Estimated effort:** {1-4 hours}  
+**Compat-sensitive:** {YES — frozen contract: {name}|NO}
 
 ---
 
-\`\`\`xml
+```xml
 <role>
-{Composed role — seniority + specialization + 3-5 specific technologies + behavioral contract + tone.
-Always substitute actual version numbers. One clear behavioral contract. One tone directive.}
+You are a {seniority} {specialization} — expert in {3-5 exact technologies/patterns}.
+{behavioral contract}
+{risk tone}
 </role>
 
 <context>
-Task: TASK-{layer}-{seq} — {Short descriptive name}
-Feature: {feature name}
-Why this task exists: {1-2 sentences — specific problem this task solves}
+Task: TASK-{layer}-{seq} — {name}
+Feature: {feature}
+Why this task exists: {1-2 sentences}
 
-Relevant existing code (mirror this pattern exactly):
+Relevant existing code:
 // {file path} — {what this shows}
-{exact code snippet — 5-15 lines from Phase 2 codebase research}
+{5-15 exact lines from codebase}
 
-Pattern to follow: {one sentence — which existing file this mirrors and why}
+Pattern to follow: {one sentence}
+Exact signatures:
+- {function/type signature}
 </context>
 
 <task>
-{One crisp imperative sentence — what to build.}
+{One crisp imperative sentence.}
 
 Steps:
-1. {Exact action — file path, function name, landmark in existing file}
-2. {Exact action}
-3. {Exact action}
+1. {exact action}
+2. {exact action}
+3. {exact action}
 
 Files to create:
-- \`{exact path}\` — {one sentence: what this file is}
+- `{path}` — {purpose}
 
 Files to modify:
-- \`{exact path}\` — {what changes and where in the file}
+- `{path}` — {change}
 </task>
 
 <constraints>
-- Touch only the files listed above — nothing else
-- {COMPAT-SENSITIVE: do not change frozen contract: {name} — run \`{test command}\` after this task}
-- Zero TypeScript \`any\`, zero \`@ts-ignore\`, all exports explicitly typed
-- Follow the exact pattern from the reference code above — not a variation
-- {Any task-specific hard constraint}
+- Touch only listed files
+- Zero `any`, zero `@ts-ignore`, explicit exports
+- Follow the reference pattern exactly
+- Do not change files outside this task
+- {compat/security/task-specific hard constraint}
 </constraints>
 
 <acceptance>
-Run: \`{exact verification command}\`
+Run: `{exact command}`
+
 Done when:
-- [ ] {specific condition 1}
-- [ ] {specific condition 2}
-- [ ] \`bun tsc --noEmit\` — zero errors
+- [ ] {specific condition}
+- [ ] {specific condition}
+- [ ] `bun tsc --noEmit` — zero errors
 </acceptance>
 
 <commit>
-\`\`\`bash
-git add {explicit file paths — never git add .}
-git commit -m "{type}({scope}): {what was done — imperative}
-
+```bash
+git add {explicit file paths}
+git commit -m "{type}({scope}): {imperative summary}
 Task: TASK-{layer}-{seq}
 TDD: {RED|IMPL|GREEN|REFACTOR|N/A}"
-\`\`\`
-Pre-commit: tsc clean + acceptance green + only task files staged.
-After committing: update index.md — mark \`[x] ✅\`, increment progress counter.
+```
+
+Pre-commit:
+- acceptance green
+- tsc clean
+- only task files staged
+- never use `git add .`
+
+After commit:
+- update `tasks/index.md`
+- mark this task `[x] ✅`
+- increment progress counter
 </commit>
 
 <done_signal>
-Reply: DONE | DONE_WITH_CONCERNS | NEEDS_CONTEXT | BLOCKED
-DONE_WITH_CONCERNS: one sentence describing the concern.
-NEEDS_CONTEXT: exact missing information needed.
-BLOCKED: what is blocking + what would unblock it.
+Reply exactly one:
+DONE | DONE_WITH_CONCERNS | NEEDS_CONTEXT | BLOCKED
+
+DONE_WITH_CONCERNS: one sentence concern.
+NEEDS_CONTEXT: exact missing info.
+BLOCKED: blocker + unblock condition.
 </done_signal>
-\`\`\`
 ```
+```
+///
+      </task-template>
 
----
-
-### TASK-CUTOVER-01 Template (ENHANCEMENT ONLY)
-
-```markdown
+      <cutover-template condition="feature_mode=enhancement">
+```md
 # TASK-CUTOVER-01: Remove Deprecated Implementation
 
-**Status:** 🔒 Locked — requires human approval
-**Layer:** FINAL
-**Parallel-safe with:** none
-**Depends on:** ALL previous tasks + cutover criteria confirmed
-**Estimated effort:** {1-3 hours}
-**Compat-sensitive:** YES — this task deliberately removes frozen contracts
+**Status:** 🔒 Locked — requires human approval  
+**Layer:** FINAL  
+**Parallel-safe with:** none  
+**Depends on:** ALL previous tasks + cutover criteria confirmed  
+**Estimated effort:** {1-3 hours}  
+**Compat-sensitive:** YES
 
 ---
 
-\`\`\`xml
+```xml
 <role>
-You are a senior engineer performing a careful production cutover — expert in safe
-deprecated code removal and rollback planning. You verify before you act. You
-confirm before you delete. You do not proceed if any cutover criterion is unmet —
-you stop and report.
+You are a senior engineer performing a careful production cutover — expert in safe deprecated code removal and rollback planning.
+You verify before you act. You stop if any cutover criterion is unmet.
 </role>
 
 <context>
-Task: TASK-CUTOVER-01 — Remove deprecated implementation
-This task removes the old {feature} implementation kept alive during the enhancement transition.
-⚠️ This task CANNOT be run by an AI agent alone. A human must verify every criterion.
+This removes the old {feature} implementation kept alive during transition.
 
-Cutover criteria — ALL must be true before starting:
-- [ ] {criterion 1 from spec}
+Cutover criteria:
+- [ ] {criterion 1}
 - [ ] {criterion 2}
 - [ ] {criterion 3}
 </context>
@@ -408,140 +343,168 @@ Cutover criteria — ALL must be true before starting:
 Remove the deprecated {feature} implementation.
 
 Steps:
-1. Verify every cutover criterion — STOP if any are not met
-2. Remove deprecated files: {exact paths from spec}
-3. Remove the feature flag at: {exact file + line}
-4. Remove deprecation headers from: {exact route files}
-5. Remove old regression tests: {exact test files}
-6. Update CLAUDE.md to remove deprecated pattern references
-
-Files to remove: {list}
-Files to modify: {list}
+1. Verify every cutover criterion; stop if any fail.
+2. Remove deprecated files: {paths}
+3. Remove feature flag: {file}
+4. Remove deprecation markers: {files}
+5. Remove old regression tests: {files}
+6. Update docs if needed.
 </task>
 
 <constraints>
-- Do NOT start unless every cutover criterion is human-confirmed
-- Remove only what is listed — no speculative cleanup
-- Do not remove any test covering the NEW implementation
+- Human approval required before starting
+- Remove only listed items
+- Do not remove tests covering the new implementation
+- Do not proceed if `/prd-validate` has not passed
 </constraints>
 
 <acceptance>
 Run:
-\`\`\`bash
-{full test suite command}
+```bash
+{full test command}
 bun tsc --noEmit
 grep -r "{deprecated symbol}" src/ --include="*.ts" --include="*.tsx"
-\`\`\`
+```
+
 Done when:
-- [ ] Full test suite passes with old code removed
+- [ ] full test suite passes
 - [ ] TypeScript clean
-- [ ] grep returns zero results for deprecated symbol
-- [ ] Team notified
+- [ ] grep returns zero deprecated symbol results
+- [ ] team notified
 </acceptance>
 
 <commit>
-\`\`\`bash
-git add {files removed or modified}
-git commit -m "chore({scope}): remove deprecated {feature} implementation — cutover complete
-
+```bash
+git add {files}
+git commit -m "chore({scope}): remove deprecated {feature} implementation
 Task: TASK-CUTOVER-01
 TDD: N/A"
-\`\`\`
+```
 </commit>
 
 <done_signal>
 DONE | DONE_WITH_CONCERNS | BLOCKED
 </done_signal>
-\`\`\`
 ```
-
----
-
-## Subagent Response Handling
-
-| Response | Action |
-|---|---|
-| DONE | Run acceptance check → if green: mark done, dispatch next. If red: provide context, re-dispatch. |
-| DONE_WITH_CONCERNS | Read concern. If correctness → resolve first. If observation → note and continue. |
-| NEEDS_CONTEXT | Task context block was incomplete. Add missing info. Re-dispatch. Update the task file. |
-| BLOCKED | Context problem → re-dispatch with more. Too large → split. Plan wrong → escalate to human. |
-
-**Parallel dispatch:** Same-layer tasks with different file sets → dispatch simultaneously. Do NOT wait for one to finish first.
-
----
-
-## Summary Table
-
-| Task ID | Name | Layer | Effort | Depends On | Parallel-safe | Compat | Commit type |
-|---|---|---|---|---|---|---|---|
-| TASK-0-01 | {name} | 0 | {Xh} | none | TASK-0-02 | NO | chore |
-| TASK-1-01 | {name} | 1 | {Xh} | TASK-0-01 | TASK-1-02 | NO | feat |
-| ... | | | | | | | |
-
-**Sequential total:** {sum}h
-**Parallel minimum:** {critical path}h
-
----
-
-## Completion Message
-
 ```
----
+///
+      </cutover-template>
+    </phase>
 
-📁 Saved
+    <phase id="6" name="completion">
+      <summary-template>
+        📁 Saved
 
-{N} task files written to: `{folder}/tasks/`
-TODO tracker:             `{folder}/tasks/index.md`
+        {N} task files written to:
+        `{folder}/tasks/`
 
-Files created:
-  tasks/index.md
-  tasks/TASK-0-01.md
-  tasks/TASK-0-02.md
-  {... one line per task file}
+        TODO tracker:
+        `{folder}/tasks/index.md`
 
-**{N} tasks · {X} layers · {sequential}h sequential · {critical-path}h parallel minimum**
+        Files created:
+        - `tasks/index.md`
+        - `tasks/TASK-0-01.md`
+        - `tasks/TASK-0-02.md`
+        - `{... one line per task file}`
 
-Layer 0: {N} tasks — start immediately
-Layer 1: {N} tasks — {N} parallel tracks available
+        **{N} tasks · {X} layers · {sequential}h sequential · {critical-path}h parallel minimum**
 
-▶️ Next Step — Start Implementing
+        ▶️ Next Step — Validate Tasks Before Implementation
 
-Option A — One task at a time:
-/prd-implement {folder}/tasks/TASK-0-01.md
+        Run:
+        `/prd-validate {folder}/tasks/index.md`
 
-Option B — Entire layer at once (parallel):
-/prd-implement --parallel-layer 0
+        This validates:
+        - task context isolation
+        - dependency graph correctness
+        - file path accuracy
+        - acceptance commands
+        - compatibility gates
+        - parallel safety
+        - live codebase references
 
-Option C — Specific parallel-safe tasks together:
-/prd-implement {folder}/tasks/TASK-1-01.md {folder}/tasks/TASK-1-02.md
+        After validation passes, start implementation with:
+        `/prd-implement {folder}/tasks/TASK-0-01.md`
 
-Layer 0 — start here:
-  ▸ {folder}/tasks/TASK-0-01.md — {name} ({Xh})
-  → /prd-implement {folder}/tasks/TASK-0-01.md
+        Or run a validated parallel layer:
+        `/prd-implement --parallel-layer 0`
+      </summary-template>
+    </phase>
 
-Full sequence:
-  Layer 0: /prd-implement --parallel-layer 0
-  Layer 1: /prd-implement --parallel-layer 1
-  ...
-  Cutover: /prd-implement {folder}/tasks/TASK-CUTOVER-01.md  ← human gate
+  </flow>
 
-Track progress: cat {folder}/tasks/index.md
-```
+  <control>
+    <priority>context isolation over brevity, but no task over 600 words</priority>
+    <failure>if task cannot be self-contained, split it</failure>
 
----
+    <role-rule>
+      Compose role per task using seniority + specialization + exact technologies + behavioral contract + risk tone.
+    </role-rule>
 
-**Hard rules:**
-- ONE FILE PER TASK — never two tasks in one .md file
-- index.md is the ONLY file updated as tasks progress — task files are immutable once written
-- index.md never contains task content — only status, links, effort metadata
-- Every task file is executable without reading any other document — all context embedded
-- Every task has an exact acceptance check — "verify it works" without specifying how is rejected
-- All code snippets must come from real codebase files found in Phase 2 — never invented
-- Same-layer tasks editing the same file → sequential, not parallel-safe
-- Effort estimates: round up, not down
-- ENHANCEMENT ONLY: TASK-0-01.md (regression tests for frozen contracts) is always first
-- ENHANCEMENT ONLY: Every task touching a frozen contract includes the frozen contract test command in acceptance
-- ENHANCEMENT ONLY: TASK-CUTOVER-01.md has a human-approval gate — never auto-executable
-- ponytail: if two tasks can be merged without a broken intermediate state, merge them
-- ponytail: context block is 300-600 words — over 600 means split the task
-- ponytail: embed only what the agent needs — no background, no history, no "for reference"
+    <commit-rule>
+      One task, one commit. Never use `git add .`.
+    </commit-rule>
+
+    <parallel-rule>
+      Same-layer tasks with different file sets may run in parallel. Same file means sequential.
+    </parallel-rule>
+
+    <validation-rule>
+      Task generation is not implementation readiness. Run /prd-validate before /prd-implement.
+    </validation-rule>
+
+    <hard-rules>
+      <rule>One file per task</rule>
+      <rule>index.md contains status only, never task content</rule>
+      <rule>Task files are immutable after creation except explicit regeneration</rule>
+      <rule>Every code snippet must come from real Phase 2 codebase context</rule>
+      <rule>Every task has exact acceptance command</rule>
+      <rule>Every task must be self-contained</rule>
+      <rule>No task may require reading plan.md, PRD, spec, or another task to start</rule>
+      <rule>Enhancement: TASK-0-01 is always frozen-contract regression tests</rule>
+      <rule>Enhancement: TASK-CUTOVER-01 is human-gated</rule>
+      <rule>Implementation is blocked until /prd-validate passes</rule>
+    </hard-rules>
+  </control>
+
+  <final>
+    ## 📁 Saved
+
+    {N} task files written to:
+    `{folder}/tasks/`
+
+    TODO tracker:
+    `{folder}/tasks/index.md`
+
+    Files created:
+    - `tasks/index.md`
+    - `tasks/TASK-0-01.md`
+    - `tasks/TASK-0-02.md`
+    - `{... one line per task file}`
+
+    **{N} tasks · {X} layers · {sequential}h sequential · {critical-path}h parallel minimum**
+
+    ## ▶️ Next Step — Validate Tasks Before Implementation
+
+    Run:
+    `/prd-validate {folder}/tasks/index.md`
+
+    This validates:
+    - task context isolation
+    - dependency graph correctness
+    - file path accuracy
+    - acceptance commands
+    - compatibility gates
+    - parallel safety
+    - live codebase references
+
+    ## After Validation
+
+    If validation passes, start implementation with:
+    `/prd-implement {folder}/tasks/TASK-0-01.md`
+
+    Or run a whole validated layer:
+    `/prd-implement --parallel-layer 0`
+  </final>
+
+</command>

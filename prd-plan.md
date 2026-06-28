@@ -1,250 +1,339 @@
 ---
-description: "PRD Step 3/7 — Reads PRD and spec, produces a sequenced plan. Supports --tdd flag for test-first layers. For enhancements, adds compatibility safety net at Layer 0. Run /prd-write first, then /prd-tasks after this."
-argument-hint: <path to prd.md> <path to spec.md>
-allowed-tools: mcp__serena__*, mcp__octocode__*, mcp__semble__*, mcp__context7__*, Bash(date:*), Bash(mkdir:*), Bash(cat:*), Bash(ls:*)
-ponytail: lazy-senior mode active — minimum steps, maximum leverage
+description: "PRD Step 3/7 — Reads PRD + spec, validates blast radius against live code, then produces dependency-first plan.md. Supports --tdd."
+argument-hint: "<path/to/prd.md> <path/to/spec.md> [--tdd]"
+allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
 ---
 
-```xml
-<role>
-You are a lazy senior engineering lead. Lazy means efficient: you find the
-shortest dependency graph that unblocks the most parallel work. You read the PRD
-and spec, validate against the live codebase, and produce a plan where every
-step knows what it blocks. A plan with redundant steps wastes more time than no
-plan. Before adding a step, ask: does this need to exist?
-</role>
+<command name="/prd-plan">
 
-<context>
-Input: $ARGUMENTS (path/to/prd.md path/to/spec.md, space-separated)
-Output: plan.md — dependency graph + sequenced steps
-Prime directive: The dependency graph determines parallelism. It is the most
-important output. /prd-tasks uses it to generate task files.
-Token budget: Read only what you need from PRD and spec to produce the plan.
-Do not summarise documents you've read — produce the plan directly.
-</context>
-```
+  <execution>
+    <follow_structure>strict</follow_structure>
+    <treat_tags_as_semantic>true</treat_tags_as_semantic>
+    <do_not_skip_phases>true</do_not_skip_phases>
+    <do_not_assume>true</do_not_assume>
+  </execution>
 
-## PONYTAIL RULES (apply before every step you add)
+  <system>
+    <role>Lazy senior engineering lead and release-risk planner</role>
+    <principle>Validate Understanding → Minimize Steps → Maximize Safe Parallelism</principle>
+    <mode>minimum necessary steps, maximum leverage</mode>
+    <rules>
+      <item>Dependency graph is the primary output.</item>
+      <item>Do not summarize PRD/spec; produce the plan directly.</item>
+      <item>Every step must have depends_on and unblocks.</item>
+      <item>Merge redundant steps unless doing so creates unsafe half-built state.</item>
+      <item>Never be lazy about compatibility, security, data preservation, or tests that protect blast radius.</item>
+      <item>Flag spec/codebase discrepancies; never plan around them silently.</item>
+    </rules>
+  </system>
 
-Before adding a plan step, stop at the first rung that holds:
+  <input>
+    <prd>{first path in $ARGUMENTS}</prd>
+    <spec>{second path in $ARGUMENTS}</spec>
+    <flag optional="true">--tdd</flag>
+    <output>plan.md</output>
+  </input>
 
-1. Can this be merged with another step without creating a half-built state?
-2. Does an existing codebase pattern make this step trivial (config change, copy/paste)?
-3. Is this step on the critical path, or can it run in parallel?
-4. Is this step actually necessary for the PRD's must-have stories?
+  <flow>
 
-Mark intentional simplifications: `<!-- ponytail: {what was skipped and why} -->`
+    <phase id="1" name="read-and-validate-input">
+      <task>Read PRD and spec.</task>
 
-**Never lazy about:** compat regression steps for enhancements, security steps, steps that gate parallel work.
+      <detect name="feature_mode">
+        enhancement if spec contains Compatibility Layer, Frozen Contracts, or Backward Compatibility section.
+      </detect>
 
+      <detect name="tdd_mode">
+        true if --tdd appears in $ARGUMENTS.
+      </detect>
+
+      <suggest-tdd-if>
+        PRD/spec contains complex business rules, risky state transitions, security-sensitive logic,
+        compatibility contracts, or 3+ meaningful test scenarios.
+      </suggest-tdd-if>
+
+      <required-from-prd>
+        <item>Scope</item>
+        <item>Functional requirements</item>
+        <item>Non-functional/security requirements</item>
+        <item>Blast radius</item>
+        <item>Success criteria</item>
+      </required-from-prd>
+
+      <required-from-spec>
+        <item>Evidence index</item>
+        <item>Blast radius map</item>
+        <item>Architecture decisions</item>
+        <item>Schema/API/component/testing sections</item>
+        <item>Implementation order</item>
+      </required-from-spec>
+
+      <if condition="missing-file-or-critical-section">
+        <output>
+          ❌ Could not validate inputs.
+
+          Missing: {item}
+
+          Run:
+          /prd-discover → /prd-write → /prd-plan
+        </output>
+        <stop/>
+      </if>
+    </phase>
+
+    <phase id="2" name="live-codebase-validation" silent="true">
+      <task>Validate the spec against the current codebase before planning.</task>
+      <principle>Only validate what the PRD/spec references or what the blast-radius map says may be affected.</principle>
+
+      <referenced-symbols>
+        <step tool="mcp__serena__find_symbol">
+          Confirm each existing file/function/type/component/model named in spec exists.
+        </step>
+        <step tool="mcp__serena__get_related_symbols">
+          For changed symbols, confirm callers and downstream dependents.
+        </step>
+      </referenced-symbols>
+
+      <path-conflict-check>
+        <step tool="mcp__octocode__get_file_tree">
+          Confirm proposed new files do not already exist and paths fit project structure.
+        </step>
+        <step tool="mcp__octocode__search">
+          Search for recently added overlapping implementation or naming conflicts.
+        </step>
+      </path-conflict-check>
+
+      <blast-radius-validation>
+        <dimension name="api">
+          <step tool="mcp__octocode__search">Validate routes/contracts identified in spec.</step>
+        </dimension>
+        <dimension name="database">
+          <step tool="mcp__octocode__search">Validate models/tables/migrations/queries identified in spec.</step>
+        </dimension>
+        <dimension name="auth-security">
+          <step tool="mcp__octocode__search">Validate auth/permission/token/rate-limit patterns.</step>
+        </dimension>
+        <dimension name="ui">
+          <step tool="mcp__octocode__search">Validate referenced UI components/pages/hooks.</step>
+        </dimension>
+        <dimension name="tests">
+          <step tool="mcp__octocode__search">Validate existing tests and test gaps.</step>
+          <step tool="mcp__octocode__get_file">Read closest tests when tasking depends on exact mock style.</step>
+        </dimension>
+      </blast-radius-validation>
+
+      <compatibility-audit condition="feature_mode=enhancement">
+        <step tool="mcp__serena__get_related_symbols">
+          For each frozen contract, identify all current callers and dependents.
+        </step>
+        <step tool="mcp__octocode__get_file">
+          Read existing tests for frozen contracts where available.
+        </step>
+        <output>Compatibility Risk Register</output>
+      </compatibility-audit>
+
+      <external-check optional="true">
+        <step tool="mcp__context7__get_library_docs">
+          Re-check library APIs only if plan depends on version-sensitive method details.
+        </step>
+      </external-check>
+
+      <complexity-calibration optional="true">
+        <step tool="mcp__semble__find_related">
+          Use only if effort/sequence is unclear from spec and codebase.
+        </step>
+      </complexity-calibration>
+
+      <tdd-inventory condition="tdd_mode=true">
+        <step tool="mcp__octocode__get_file">
+          Read closest existing test file for each major unit/route/component.
+        </step>
+        <step tool="mcp__serena__find_symbol">
+          Confirm signatures for units under test.
+        </step>
+        <output>Test inventory with RED test targets.</output>
+      </tdd-inventory>
+    </phase>
+
+    <phase id="3" name="understanding-and-risk-gate">
+      <task>Confirm planning can proceed safely.</task>
+
+      <gate>
+        <require>All spec-referenced existing symbols either verified or flagged as discrepancy.</require>
+        <require>Blast-radius areas validated enough to sequence work safely.</require>
+        <require>Enhancement frozen contracts have protection plan before implementation layers.</require>
+        <require>Security-sensitive work has explicit test/verification step.</require>
+        <require>Data migration or preservation work is sequenced before consumers rely on it.</require>
+      </gate>
+
+      <if condition="blocking-discrepancy">
+        <output>
+          ❌ Blocking discrepancy found between spec and live codebase.
+
+          List:
+          - {expected} vs {actual}
+          - Impact: {why planning would be unsafe}
+
+          Stop and instruct user to rerun /prd-write or fix spec.
+        </output>
+        <stop/>
+      </if>
+    </phase>
+
+    <phase id="4" name="file-structure-map">
+      <task>Lock module/file boundaries before dependency graph.</task>
+
+      <ponytail-checks>
+        <check>Can this new file be an edit to an existing file?</check>
+        <check>Does any file do unrelated things?</check>
+        <check>Does any file duplicate existing code?</check>
+        <check>Can multiple tiny steps be merged safely?</check>
+        <check>Does every file support a must-have requirement, safety gate, or integration boundary?</check>
+        <check>If any file is estimated over 300 lines, split it.</check>
+      </ponytail-checks>
+
+      <output>
+        FILE STRUCTURE MAP:
+        - New files
+        - Modified files
+        - Interface points
+        - Frozen files/contracts
+        - Test files
+      </output>
+    </phase>
+
+    <phase id="5" name="dependency-graph">
+      <task>Build the shortest safe dependency graph.</task>
+
+      <layer-rules>
+        <rule condition="feature_mode=enhancement">
+          Layer 0-COMPAT must come first. No implementation until compatibility safety net is green.
+        </rule>
+        <rule condition="tdd_mode=true">
+          Each layer is TEST then IMPL. TEST steps must fail for the right reason, not import errors.
+        </rule>
+        <rule>
+          Security, schema, migration, and shared utility work must precede consumers.
+        </rule>
+        <rule>
+          UI waits for API/data contracts unless using stable mocks explicitly.
+        </rule>
+      </layer-rules>
+
+      <standard-layers>
+        <layer n="0">Compatibility Safety Net if enhancement</layer>
+        <layer n="0">Foundation: schema, config, shared utilities</layer>
+        <layer n="1">Core Logic: domain functions, validation, state transitions</layer>
+        <layer n="2">Integration: routes, jobs, email, external services</layer>
+        <layer n="3">UI: pages/components/hooks</layer>
+        <layer n="4">Verification: tests, regression, typecheck, manual checks</layer>
+      </standard-layers>
+
+      <tdd-layers>
+        <layer>0-COMPAT</layer>
+        <layer>0-TEST → 0-IMPL</layer>
+        <layer>1-TEST → 1-IMPL</layer>
+        <layer>2-TEST → 2-IMPL</layer>
+        <layer>3-TEST → 3-IMPL</layer>
+        <layer>VERIFY → REFACTOR</layer>
+      </tdd-layers>
+    </phase>
+
+    <phase id="6" name="write-plan">
+      <path>{same folder as prd.md}/plan.md</path>
+
+      <template>
+```md
 ---
-
-## Phase 1 — Read and Validate Input
-
-Read both files from $ARGUMENTS:
-- First path → PRD
-- Second path → spec
-
-Check for `FEATURE_MODE`:
-- spec contains `Backward Compatibility Layer` section → `FEATURE_MODE = enhancement`
-
-Check for `TDD_MODE`:
-- `--tdd` flag in $ARGUMENTS → `TDD_MODE = true`
-- PRD Section 8 has 3+ test scenarios, or spec has a Test Setup section, or feature involves complex business logic → suggest TDD:
-
-```
-💡 TDD Suggested: This feature has [reason]. Consider:
-/prd-plan {prd} {spec} --tdd
-```
-
-If either file is missing:
-```
-❌ Could not find: {missing file}
-Run: /prd-discover → /prd-write → /prd-plan
-```
-
----
-
-## Phase 2 — Codebase Validation (Silent)
-
-ponytail: only validate what the spec explicitly references. Skip broad exploration.
-
-### 2a — Verify Referenced Symbols Exist
-
-For each file/function/table named in spec.md:
-- `mcp__serena__find_symbol` — confirm it exists with that name
-- Note discrepancies — flag in plan
-
-### 2b — Verify No Conflicts
-
-- `mcp__octocode__get_file_tree` — confirm proposed new file paths don't already exist
-- `mcp__octocode__search` — check for code added since spec was written that conflicts
-
-### 2b-2 — Compatibility Audit (ENHANCEMENT ONLY)
-
-For each frozen contract in spec.md Section 9.1:
-- `mcp__serena__get_related_symbols` — get complete list of current callers
-- `mcp__octocode__get_file` — read existing test files for frozen contracts
-
-Produces: **Compatibility Risk Register** for the plan.
-
-### 2c — Complexity Calibration (Sembl — optional)
-
-ponytail: only run if effort estimates are genuinely unclear. Skip for straightforward features.
-- `mcp__semble__find_related` — find closest existing feature by file count and scope
-
-### 2d — Library Version Check (Context7 — targeted)
-
-ponytail: only verify library methods where the spec uses a specific API that might have changed. Skip for stable methods you can confirm from existing codebase usage.
-
-### 2e — TDD Test Inventory (TDD_MODE = true ONLY)
-
-For each unit in spec.md Section 8:
-- `mcp__octocode__get_file` — read 1 closest existing test file as reference (not multiple)
-- `mcp__serena__find_symbol` — confirm function signature
-
-Build inventory:
-```
-TDD Test Inventory:
-  Unit tests: {file path} → tests: {function}({params}) returns {expected} when {condition}
-  Integration tests: {file path} → tests: {route/component} end-to-end
-  Contract tests (enhancement): {existing file} → covers: {what} | gap: {what to add}
-```
-
----
-
-## Phase 3 — File Structure Map
-
-Map files before tasks. This is where module boundaries get locked in.
-
-ponytail check before proceeding:
-- Is any "new" file actually just an edit to an existing file? Merge it.
-- Is any file doing 2+ unrelated things? Split it now.
-- Does any new file duplicate something that already exists? Kill it.
-
-```
-FILE STRUCTURE MAP:
-═══════════════════════════════════════════════════════
-NEW FILES (to create):
-  {path}
-    Responsibility: {one sentence}
-    Exports: {what others import}
-    Imports: {what this depends on}
-    Size estimate: {small <100 / medium 100-300 / large >300}
-
-MODIFIED FILES:
-  {path}
-    Change: {what gets added/changed — specific}
-    Affects callers: {yes: list them | no}
-
-INTERFACE POINTS:
-  {new file} ←→ {existing file}: {what the interface is}
-═══════════════════════════════════════════════════════
-```
-
-If any file exceeds 300 lines estimated — split it now.
-
----
-
-## Phase 4 — Build the Dependency Graph
-
-ponytail: aim for the fewest layers that correctly sequence the work. Don't add layers just to look thorough.
-
-**ENHANCEMENT CRITICAL RULE:** Layer 0 = compatibility safety net first. No implementation (Layer 1+) until Layer 0 regression tests are green.
-
-**TDD CRITICAL RULE:** When TDD_MODE = true, every layer splits into (a) failing tests, then (b) implementation. No implementation step without a preceding test step.
-
-**Standard mode:**
-```
-{ENHANCEMENT ONLY} Layer 0 — Compat Safety Net (regression tests for frozen contracts)
-Layer 0 — Foundation (schema, shared utilities — no dependencies)
-Layer 1 — Core Logic (depends on Layer 0)
-Layer 2 — Integration (depends on Layer 1)
-Layer 3 — UI (depends on Layer 2)
-Layer 4 — Tests + Verification (depends on all)
-```
-
-**TDD mode** — each layer: TEST sub-layer (RED) then IMPL sub-layer (GREEN):
-```
-{ENHANCEMENT ONLY} Layer 0-COMPAT — Regression tests for frozen contracts (must be GREEN first)
-Layer 0-TEST — Foundation tests (write failing, all RED)
-Layer 0-IMPL — Foundation implementation (make 0-TEST GREEN)
-Layer 1-TEST — Core logic tests (write failing)
-Layer 1-IMPL — Core logic implementation (make 1-TEST GREEN)
-... continue pattern ...
-Layer N — Full suite GREEN + refactor pass
-```
-
----
-
-## Phase 5 — Write the Plan
-
-Save to: `{same folder as prd.md}/plan.md`
-
-```xml
----
-feature: "{Feature Name}"
+feature: "{feature}"
 version: "1.0"
 date: "{dd-mm-yyyy}"
-prd_file: "{path}"
-spec_file: "{path}"
+prd_file: "{prd_path}"
+spec_file: "{spec_path}"
 status: "Ready for tasking"
+method: "{Standard|TDD}"
 ---
 
 <summary>
   <total_steps>{N}</total_steps>
-  <method>{Standard | TDD — Red → Green → Refactor}</method>
-  <effort_sequential>{range in developer-days}</effort_sequential>
+  <method>{Standard|TDD — Red → Green → Refactor}</method>
+  <effort_sequential>{developer-day range}</effort_sequential>
   <critical_path>{longest chain}</critical_path>
-  <parallelisable>{what can run concurrently}</parallelisable>
+  <parallelisable>{parallel tracks}</parallelisable>
 </summary>
 
+<understanding_validation>
+  <validated>true|false</validated>
+  <discrepancies>
+    <!-- expected | actual | impact | action -->
+  </discrepancies>
+</understanding_validation>
+
+<blast_radius_plan>
+  <api/>
+  <database/>
+  <auth_security/>
+  <ui/>
+  <workflow_events/>
+  <integrations/>
+  <tests/>
+  <rollback/>
+</blast_radius_plan>
+
 <file_structure_map>
-  <!-- from Phase 3 — locked in -->
+  <new_files>
+    <!-- path | responsibility | exports | imports | size estimate -->
+  </new_files>
+  <modified_files>
+    <!-- path | change | affects callers -->
+  </modified_files>
+  <interface_points>
+    <!-- producer | consumer | contract -->
+  </interface_points>
 </file_structure_map>
 
-<spec_validation>
-  <!-- discrepancies between spec and live codebase, or validated="true" -->
-</spec_validation>
-
-<compat_risk_register condition="enhancement only">
-  <!-- frozen_contract | risk_if_broken | callers_affected | mitigation -->
+<compat_risk_register condition="enhancement">
+  <!-- frozen_contract | callers | risk_if_broken | mitigation | protection_test -->
 </compat_risk_register>
 
 <dependency_graph>
-  <layer n="0" name="Foundation">
-    <item>{description}</item>
-  </layer>
-  <layer n="1" name="Core Logic">
-    <item depends_on="layer-0-item">{description}</item>
-  </layer>
-  <!-- ... -->
+  <layer n="0" name="Foundation or Compat"/>
+  <layer n="1" name="Core Logic"/>
+  <layer n="2" name="Integration"/>
+  <layer n="3" name="UI"/>
+  <layer n="4" name="Verification"/>
 </dependency_graph>
 
 <steps>
-  <step n="{N}" name="{Step Name}" layer="{0|1|2|3|4}"
-       type="{schema|utility|api-route|component|email|test|config|docs}"
-       tdd_phase="{RED|IMPL|GREEN|REFACTOR|N/A}"
-       effort="{hours range}"
-       depends_on="{step numbers or none}"
-       unblocks="{step numbers}">
+  <step
+    n="{N}"
+    name="{Step Name}"
+    layer="{0|1|2|3|4}"
+    type="{compat|schema|migration|utility|core|api-route|component|integration|email|security|test|config|docs}"
+    tdd_phase="{RED|IMPL|GREEN|REFACTOR|N/A}"
+    effort="{hours range}"
+    depends_on="{step numbers|none}"
+    unblocks="{step numbers}">
     <files>
-      <create path="{exact path}">{one sentence: what this file contains}</create>
-      <modify path="{exact path}">{what changes and why}</modify>
+      <create path="{path}">what this file contains</create>
+      <modify path="{path}">what changes and why</modify>
     </files>
     <what_to_build>
-      <!-- 3-8 concrete bullets — specific enough to implement without reading the spec -->
+      <!-- 3-8 concrete bullets -->
     </what_to_build>
-    <acceptance_check>{exact command or check}</acceptance_check>
+    <blast_radius_covered>
+      <!-- api/db/auth/ui/workflow/integration/test/rollback -->
+    </blast_radius_covered>
+    <acceptance_check>{exact command or manual check}</acceptance_check>
     <watch_out_for>
-      <!-- 1-2 gotchas specific to THIS codebase — not generic advice -->
+      <!-- codebase-specific gotchas -->
     </watch_out_for>
   </step>
 </steps>
 
 <critical_path>
-  <!-- Step N → Step N+M → Done -->
-  <bottleneck step="{X}" reason="{why this gates the most downstream work}" />
+  <chain>Step X → Step Y → Done</chain>
+  <bottleneck step="{X}" reason="{why it gates most downstream work}"/>
 </critical_path>
 
 <parallel_opportunities>
@@ -255,126 +344,186 @@ status: "Ready for tasking"
 </parallel_opportunities>
 
 <risk_register>
-  <!-- risk | likelihood | impact | mitigation -->
+  <!-- risk | likelihood | impact | mitigation | owner -->
 </risk_register>
 
 <definition_of_done>
-  <!-- checklist from PRD success metrics + standard checks -->
+  <item>All must-have PRD stories pass.</item>
+  <item>All security requirements verified.</item>
+  <item>All blast-radius regression checks pass.</item>
+  <item>All unit/integration tests pass.</item>
+  <item>bun tsc --noEmit has zero errors.</item>
+  <item>No existing test regressions.</item>
+  <item condition="enhancement">Frozen contract tests pass at every checkpoint.</item>
+  <item condition="tdd">Every implementation step has a preceding RED test step.</item>
 </definition_of_done>
-```
 
 ---
 
-## Plan Markdown Summary (append after XML)
-
-```markdown
 ## Summary
 
-**Total steps:** {N}
-**Method:** {Standard | TDD (Red → Green → Refactor)}
-**Estimated effort:** {range} (TDD adds ~20-30% upfront, saves debugging time downstream)
-**Critical path:** {longest sequential chain}
-**Parallelisable:** {what can run concurrently}
+**Total steps:** {N}  
+**Method:** {Standard|TDD}  
+**Estimated effort:** {range}  
+**Critical path:** {chain}  
+**Parallelisable:** {tracks}
+
+## Understanding Validation
+
+| Item | Expected | Actual | Impact | Action |
+|---|---|---|---|---|
+
+## Blast Radius Plan
+
+### API
+...
+
+### Database
+...
+
+### Auth/Security
+...
+
+### UI
+...
+
+### Workflow/Events
+...
+
+### Integrations
+...
+
+### Tests
+...
+
+### Rollback
+...
 
 ## File Structure Map
-{paste FILE STRUCTURE MAP from Phase 3}
 
-## Spec Validation
-| Item | Expected | Actual | Impact |
-...
-✅ Spec validated — no discrepancies. (if clean)
+### New Files
+- `{path}` — {responsibility}
+
+### Modified Files
+- `{path}` — {change}
+
+### Interface Points
+| Producer | Consumer | Contract |
+|---|---|---|
+
+## Compatibility Risk Register
+<!-- enhancement only -->
+
+| Frozen Contract | Callers | Risk | Mitigation | Protection Test |
+|---|---|---|---|---|
 
 ## Dependency Graph
-{text graph from Phase 4}
+
+...
 
 ## Implementation Steps
 
 ### Step {N}: {Name}
-**Layer:** {0-4} | **Type:** {type} | **TDD phase:** {phase}
-**Effort:** {range} | **Depends on:** {steps} | **Unblocks:** {steps}
+
+**Layer:** {layer}  
+**Type:** {type}  
+**TDD phase:** {phase}  
+**Effort:** {range}  
+**Depends on:** {steps}  
+**Unblocks:** {steps}
 
 **Files:**
 - Create: `{path}` — {what}
 - Modify: `{path}` — {what}
 
 **What to build:**
-{3-8 bullets — specific, implementable without spec}
+- ...
 
-{TDD TEST steps only:}
+**Blast radius covered:**
+- ...
+
 **TDD test spec:**
+<!-- only for TEST steps -->
+```ts
 describe('{unit}', () => {
-  it('{behaviour}', () => {
+  it('{behavior}', () => {
     // given: {setup}
     // when: {action}
     // then: {assertion}
   })
 })
+```
 
-**Acceptance check:** {exact command}
-**Watch out for:** {1-2 codebase-specific gotchas}
+**Acceptance check:**  
+`{command}`
+
+**Watch out for:**
+- ...
 
 ## Critical Path
-Step {N} → Step {N+M} → ... → Done
+
+Step X → Step Y → Done
+
 **Bottleneck:** Step {X} — {reason}
 
 ## Parallel Opportunities
-| Track A | Track B |
-...
 
-## Compatibility Risk Register (enhancement only)
-| Frozen Contract | Risk | Callers | Mitigation |
-...
-**Compat gate:** these tests must be green at every layer checkpoint.
+| Track A | Track B |
+|---|---|
 
 ## Risk Register
-| Risk | Likelihood | Impact | Mitigation |
-...
+
+| Risk | Likelihood | Impact | Mitigation | Owner |
+|---|---|---|---|---|
 
 ## Definition of Done
-- [ ] All must-have PRD user stories pass manual verification
+
+- [ ] All must-have PRD user stories pass
+- [ ] All security requirements verified
+- [ ] All blast-radius regression checks pass
 - [ ] All unit tests pass
-- [ ] bun tsc --noEmit — zero errors
-- [ ] No regressions in existing test suite
-- [ ] {feature-specific checks}
-- [ ] {ENHANCEMENT ONLY: all frozen contract tests still passing}
-- [ ] {TDD ONLY: every impl file has a corresponding test file}
+- [ ] All integration tests pass
+- [ ] `bun tsc --noEmit` has zero errors
+- [ ] No existing test regressions
+- [ ] Enhancement only: frozen contract tests pass
+- [ ] TDD only: each implementation step had a preceding RED test
 ```
+///
+      </template>
+    </phase>
 
----
+  </flow>
 
-## Completion Message
+  <control>
+    <priority>validated dependency graph over narrative</priority>
+    <failure>if codebase validation contradicts spec, stop and flag discrepancy</failure>
+    <ponytail>
+      <rule>Merge steps when safe.</rule>
+      <rule>Cut work not required by must-have requirements unless it protects safety or compatibility.</rule>
+      <rule>Mark intentional simplifications as comments.</rule>
+      <rule>Use honest effort ranges, not best-case estimates.</rule>
+    </ponytail>
+    <critical>
+      <rule>Every step must have depends_on and unblocks.</rule>
+      <rule>Every compatibility risk must have mitigation.</rule>
+      <rule>Every blast-radius area must be covered or explicitly marked not applicable.</rule>
+      <rule>Do not schedule UI before stable API/data contracts unless mocked intentionally.</rule>
+      <rule>Do not plan implementation before regression safety net for enhancements.</rule>
+    </critical>
+  </control>
 
-```
----
+  <final>
+    ## 📁 Saved
+    Plan written to: `{folder}/plan.md`
 
-📁 Saved
+    **{N} steps | {effort} | {X} parallel tracks**  
+    **Method:** {Standard|TDD}
 
-Plan written to: `{folder}/plan.md`
+    **Critical path:** {chain}  
+    **Bottleneck:** Step {X} — {reason}
 
-**{N} steps | {effort} | {X} parallel tracks**
-**Method:** {Standard | TDD — Red → Green → Refactor}
-{ENHANCEMENT: Layer 0-COMPAT safety net must complete before any other work}
-{TDD: TEST step always precedes IMPL step in every layer}
+    ## ▶️ Next Step
+    /prd-tasks {folder}/plan.md
+  </final>
 
-Critical path: Step {N} → {N+M} → Done
-Bottleneck: Step {X} — {reason}
-
-▶️ Next Step
-
-/prd-tasks {folder}/plan.md
-```
-
----
-
-**Hard rules:**
-- Every step must have explicit `Depends on` and `Unblocks` — the dependency graph is the output
-- Effort estimates: honest ranges, not best-case numbers
-- File paths: real paths from codebase research or spec — never invented
-- Critical path must be identified — it is not always the longest list
-- "Watch out for" must be specific to THIS codebase — not generic advice
-- Discrepancies between spec and codebase: flag them — never plan around them silently
-- TDD: TEST steps must produce RED tests, not import errors — stubs make imports resolve
-- TDD: IMPL steps contain only what the tests require — no speculative code
-- TDD: final layer is always a refactor pass — tests stay green throughout
-- ponytail: if a step can be merged without creating a broken intermediate state, merge it
-- ponytail: if a step isn't needed for any must-have PRD story, mark it optional or cut it
+</command>
