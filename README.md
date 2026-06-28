@@ -526,9 +526,7 @@ These are useful but not mandatory:
 ├── prd-validate.md
 ├── prd-implement.md
 ├── prd-review.md
-├── prd-pr.md
-├── prd-ponytail-audit.md
-└── prd-ponytail-review.md
+└── prd-pr.md
 ```
 
 
@@ -605,9 +603,7 @@ Expected structure:
 ├── prd-validate.md
 ├── prd-implement.md
 ├── prd-review.md
-├── prd-pr.md
-├── prd-ponytail-audit.md
-└── prd-ponytail-review.md
+└── prd-pr.md
 ```
 
 Run:
@@ -660,9 +656,7 @@ Expected structure:
 ├── prd-validate.md
 ├── prd-implement.md
 ├── prd-review.md
-├── prd-pr.md
-├── prd-ponytail-audit.md
-└── prd-ponytail-review.md
+└── prd-pr.md
 ```
 
 Run:
