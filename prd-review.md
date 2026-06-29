@@ -329,7 +329,7 @@ echo "Detected framework: $FRAMEWORK  Primary ext: $PRIMARY_EXT"
         You are a specialist code reviewer. Read only your assigned files.
         Output findings only. No praise. No padding.
         Format:
-        SEVERITY · CATEGORY · path/to/file.ts:LINE / ✗ problem / ✓ fix
+        SEVERITY · CATEGORY · path/to/file:LINE / ✗ problem / ✓ fix
 
         Severities: CRITICAL | HIGH | MEDIUM | LOW
         If clean: PASS · CATEGORY
@@ -360,7 +360,7 @@ echo "Detected framework: $FRAMEWORK  Primary ext: $PRIMARY_EXT"
           <finding condition="faithfulness drift">CRITICAL · SPEC · {file}:{line} / ✗ Code behavior drifts from acceptance criteria — passes tests but does something different from stated intent / ✓ Reconcile code behavior with acceptance criteria; criteria are truth</finding>
           <finding condition="route missing">CRITICAL · SPEC · {path}:0 / ✗ Route {METHOD} {path} missing / ✓ Create per spec</finding>
           <finding condition="bad response shape">HIGH · SPEC · {file}:{line} / ✗ Response shape deviates from spec / ✓ Match spec shape</finding>
-          <finding condition="auth missing">CRITICAL · SECURITY · {file}:{line} / ✗ Auth required by spec but auth() not called / ✓ Call auth() before logic</finding>
+          <finding condition="auth missing">CRITICAL · SECURITY · {file}:{line} / ✗ Auth required by spec but no authentication check before business logic / ✓ Call the project's auth middleware or session-check function before executing logic</finding>
           <finding condition="frozen contract changed">CRITICAL · COMPAT · {file}:{line} / ✗ Frozen contract {name} broken / ✓ Restore signature; make additive change</finding>
           <finding condition="model missing">CRITICAL · SPEC · {schema-file}:0 / ✗ Model/schema {name} missing / ✓ Add per spec</finding>
         </findings>
@@ -371,32 +371,32 @@ echo "Detected framework: $FRAMEWORK  Primary ext: $PRIMARY_EXT"
 
         <ponytail-review>
           <rule>Never accept “minimal” code that skips auth, validation, ownership checks, or rate limits.</rule>
-          <rule>Prefer existing auth/Zod/rate-limit helpers over new security wrappers.</rule>
+          <rule>Prefer existing auth/validation/rate-limit helpers already in the project over new security wrappers.</rule>
           <rule>Smallest safe fix beats large security framework changes.</rule>
           <rule>Do not recommend new dependencies unless existing stack cannot cover the risk.</rule>
         </ponytail-review>
 
         <checklist>
-          <check>auth() before DB/business logic</check>
-          <check>IDOR ownership scope</check>
-          <check>Zod validation before DB writes/queries</check>
-          <check>crypto-safe token generation</check>
-          <check>no sensitive logs</check>
-          <check>no NEXT_PUBLIC secrets</check>
-          <check>server actions authenticate before mutation</check>
-          <check>rate limits on public mutation endpoints</check>
-          <check>no production source maps</check>
+          <check>Authentication/session check before DB/business logic</check>
+          <check>IDOR ownership scope — results filtered to current user/org</check>
+          <check>Input validation before DB writes/queries (using whatever validation library/pattern the project uses — Zod, Pydantic, marshmallow, Bean Validation, ActiveRecord validations, etc.)</check>
+          <check>Cryptographically secure random generation for secrets/tokens (not a weak PRNG)</check>
+          <check>No sensitive values in logs</check>
+          <check>No secrets leaked to the client via environment variable naming conventions (NEXT_PUBLIC_ in Next.js, VITE_ in Vite, PUBLIC_ in SvelteKit, etc.) or serialized into client-side bundles/responses</check>
+          <check>Server-side mutation handlers authenticate before mutating (applies to Next.js server actions, tRPC mutations, Django views, FastAPI route handlers, etc.)</check>
+          <check>Rate limits on public mutation endpoints</check>
+          <check>No source maps exposed in production builds (applies to any build system that emits source maps — Next.js, Vite, webpack, esbuild, etc.)</check>
         </checklist>
 
         <findings>
-          <finding>CRITICAL · SECURITY · {file}:{line} / ✗ Logic runs before auth() / ✓ Move auth() before logic</finding>
+          <finding>CRITICAL · SECURITY · {file}:{line} / ✗ Business logic executes before authentication check / ✓ Move the project's auth middleware or session-check call before any logic</finding>
           <finding>CRITICAL · SECURITY · {file}:{line} / ✗ No ownership filter on {model} lookup / ✓ Scope query to current user/org</finding>
-          <finding>CRITICAL · SECURITY · {file}:{line} / ✗ Unvalidated input reaches database / ✓ Validate with z.object(...).safeParse()</finding>
-          <finding>CRITICAL · SECURITY · {file}:{line} / ✗ Math.random() used for secret/token / ✓ Use crypto.randomBytes()</finding>
-          <finding>HIGH · SECURITY · {file}:{line} / ✗ Sensitive value logged / ✓ Remove or log non-sensitive id</finding>
-          <finding>CRITICAL · SECURITY · {file}:{line} / ✗ Secret exposed via NEXT_PUBLIC_ / ✓ Keep secret server-side</finding>
-          <finding>HIGH · SECURITY · {file}:{line} / ✗ Public mutation endpoint lacks rate limit / ✓ Apply existing rate-limit pattern</finding>
-          <finding>HIGH · SECURITY · {file}:{line} / ✗ Production source maps enabled / ✓ Disable productionBrowserSourceMaps</finding>
+          <finding>CRITICAL · SECURITY · {file}:{line} / ✗ Unvalidated input reaches database / ✓ Validate input with the project's validation library before the DB call</finding>
+          <finding>CRITICAL · SECURITY · {file}:{line} / ✗ Weak PRNG used for secret or token generation / ✓ Use a cryptographically secure source: crypto.randomBytes() in Node.js, secrets module in Python, crypto/rand in Go, OsRng in Rust, SecureRandom in Java</finding>
+          <finding>HIGH · SECURITY · {file}:{line} / ✗ Sensitive value logged / ✓ Remove or log only non-sensitive identifier</finding>
+          <finding>CRITICAL · SECURITY · {file}:{line} / ✗ Secret exposed to client via public env var or serialized into client bundle / ✓ Keep secret server-side; use the framework's server-only env pattern</finding>
+          <finding>HIGH · SECURITY · {file}:{line} / ✗ Public mutation endpoint lacks rate limit / ✓ Apply existing rate-limit pattern from this project</finding>
+          <finding>HIGH · SECURITY · {file}:{line} / ✗ Source maps enabled in production build / ✓ Disable source map output in the project's build config</finding>
         </findings>
       </reviewer>
 
@@ -412,30 +412,31 @@ echo "Detected framework: $FRAMEWORK  Primary ext: $PRIMARY_EXT"
 
         <checklist>
           <backend>
-            <check>N+1 DB queries</check>
-            <check>unbounded findMany</check>
-            <check>wide query without select</check>
-            <check>sequential independent queries</check>
-            <check>missing index for filter field</check>
-            <check>deep include nesting</check>
+            <check>N+1 DB queries — per-row query inside a loop instead of a batch query</check>
+            <check>Unbounded collection query — no pagination/limit applied to a query that could return large result sets</check>
+            <check>Wide query — fetching all columns/fields when only a subset is used</check>
+            <check>Sequential independent queries that could run concurrently</check>
+            <check>Missing index on a field used in a filter/WHERE clause</check>
+            <check>Deeply nested eager-loaded associations (ORM include/join depth > 2 levels without justification)</check>
           </backend>
           <frontend>
-            <check>key=index on dynamic list</check>
-            <check>inline object/array props causing rerenders</check>
-            <check>heavy client import without dynamic import</check>
-            <check>direct state mutation</check>
+            <!-- Apply only if COMPONENT_FILES is non-empty for this repo -->
+            <check>List rendered with index as key on a dynamic/reorderable list</check>
+            <check>Inline object/array literals passed as props causing unnecessary re-renders on every parent render</check>
+            <check>Large/heavy dependency imported synchronously when lazy/dynamic import would suffice</check>
+            <check>Direct mutation of shared state instead of producing a new value</check>
           </frontend>
         </checklist>
 
         <findings>
-          <finding>HIGH · PERFORMANCE · {file}:{line} / ✗ N+1 query in loop / ✓ Batch with findMany({ where: { id: { in: ids } } })</finding>
-          <finding>HIGH · PERFORMANCE · {file}:{line} / ✗ findMany() has no limit / ✓ Add take/skip with default limit</finding>
-          <finding>MEDIUM · PERFORMANCE · {file}:{line} / ✗ Fetches unused columns / ✓ Add select for used fields</finding>
-          <finding>MEDIUM · PERFORMANCE · {file}:{line} / ✗ Independent queries run sequentially / ✓ Use Promise.all</finding>
-          <finding>HIGH · PERFORMANCE · {file}:{line} / ✗ WHERE field lacks index / ✓ Add @@index([{field}])</finding>
-          <finding>MEDIUM · PERFORMANCE · {file}:{line} / ✗ key=index on dynamic list / ✓ Use stable id key</finding>
-          <finding>MEDIUM · PERFORMANCE · {file}:{line} / ✗ Inline object prop recreates each render / ✓ Hoist constant or useMemo</finding>
-          <finding>HIGH · PERFORMANCE · {file}:{line} / ✗ State mutated directly / ✓ Create new state reference</finding>
+          <finding>HIGH · PERFORMANCE · {file}:{line} / ✗ N+1 query in loop / ✓ Batch into a single query with an IN clause or the ORM's batch API (e.g. Prisma findMany where id in ids, SQLAlchemy in_(), Go sqlx.In, etc.)</finding>
+          <finding>HIGH · PERFORMANCE · {file}:{line} / ✗ Unbounded collection query — no limit / ✓ Add pagination or a default limit using the ORM/query-builder's limit/take/LIMIT clause</finding>
+          <finding>MEDIUM · PERFORMANCE · {file}:{line} / ✗ Query fetches unused columns / ✓ Project only required fields using SELECT / ORM select() / GraphQL field selection</finding>
+          <finding>MEDIUM · PERFORMANCE · {file}:{line} / ✗ Independent queries run sequentially / ✓ Run concurrently — Promise.all in JS, asyncio.gather in Python, goroutines in Go, join/rayon in Rust</finding>
+          <finding>HIGH · PERFORMANCE · {file}:{line} / ✗ Filtered field lacks a DB index / ✓ Add an index on {field} in the schema/migration file</finding>
+          <finding>MEDIUM · PERFORMANCE · {file}:{line} / ✗ List uses index as key — breaks reconciliation on reorder / ✓ Use a stable unique id as key</finding>
+          <finding>MEDIUM · PERFORMANCE · {file}:{line} / ✗ Inline object/array prop recreates reference each render / ✓ Hoist to module scope or memoize with the framework's memoization primitive</finding>
+          <finding>HIGH · PERFORMANCE · {file}:{line} / ✗ Shared state mutated directly / ✓ Produce a new value/reference instead of mutating in place</finding>
         </findings>
       </reviewer>
 
@@ -580,6 +581,11 @@ echo "Detected framework: $FRAMEWORK  Primary ext: $PRIMARY_EXT"
 
           <sub-reviewer language="Ruby" output-name="type-safety (Ruby)">
             <!-- Dispatched when ALL_SOURCE_FILES are primarily .rb -->
+            <ponytail-review>
+              <rule>Do not demand Sorbet annotations on trivial private methods or scripts.</rule>
+              <rule>rescue Exception is almost always wrong — flag it without exception.</rule>
+              <rule>method_missing without respond_to_missing? breaks the Ruby protocol — always flag.</rule>
+            </ponytail-review>
             <dispatch-condition>
               If the repo uses Sorbet (Gemfile contains sorbet or tapioca, or .sorbet/ exists)
               or RBS signatures are present: check for missing sig {} blocks on public methods.
@@ -657,12 +663,12 @@ echo "Detected framework: $FRAMEWORK  Primary ext: $PRIMARY_EXT"
             <check>suppression comment</check>
           </quality>
           <architecture>
-            <check>shared component imports module-specific code</check>
-            <check>cross-module imports violate boundaries</check>
-            <check>new PrismaClient outside db singleton</check>
-            <check>API route fetches internal API route</check>
-            <check>client imports server-only module</check>
-            <check>design token defined in component</check>
+            <check>Shared/common component or module imports code that is specific to one feature or domain module</check>
+            <check>Cross-module imports violate the repo's established boundary conventions</check>
+            <check>New DB client instance created outside the project's established DB singleton or connection pool (e.g. new PrismaClient, new mongoose.Connection, creating a new SQLAlchemy engine, opening a new sql.DB, etc.)</check>
+            <check>API handler/route calls another internal API endpoint over HTTP instead of calling the service layer directly</check>
+            <check>Client-side code imports a module marked or known to be server-only (e.g. server-only imports, modules with direct DB/secret access)</check>
+            <check>Design token or global style constant defined inline inside a component instead of the shared design system / token file</check>
           </architecture>
         </checklist>
 
@@ -672,11 +678,11 @@ echo "Detected framework: $FRAMEWORK  Primary ext: $PRIMARY_EXT"
           <finding>LOW · QUALITY · {file}:{line} / ✗ Repeated literal / ✓ Extract named constant</finding>
           <finding>MEDIUM · QUALITY · {file}:{line} / ✗ Function does too much / ✓ Extract named helper</finding>
           <finding>MEDIUM · QUALITY · {file}:{line} / ✗ Duplicated logic / ✓ Reuse existing helper or extract one</finding>
-          <finding>MEDIUM · QUALITY · {file}:{line} / ✗ ESLint rule disabled / ✓ Fix root issue</finding>
-          <finding>HIGH · ARCHITECTURE · {file}:{line} / ✗ Shared component imports module code / ✓ Invert with prop or move shared logic to lib</finding>
-          <finding>CRITICAL · ARCHITECTURE · {file}:{line} / ✗ New PrismaClient outside db singleton / ✓ Import db singleton</finding>
-          <finding>MEDIUM · ARCHITECTURE · {file}:{line} / ✗ API route calls internal API / ✓ Call service directly</finding>
-          <finding>CRITICAL · ARCHITECTURE · {file}:{line} / ✗ Client imports server-only module / ✓ Move logic server-side/API</finding>
+          <finding>MEDIUM · QUALITY · {file}:{line} / ✗ Lint suppression comment without justification / ✓ Fix root issue or add explanation</finding>
+          <finding>HIGH · ARCHITECTURE · {file}:{line} / ✗ Shared module imports domain-specific code / ✓ Invert dependency — pass via parameter or move shared logic to a neutral location</finding>
+          <finding>CRITICAL · ARCHITECTURE · {file}:{line} / ✗ New DB client instance created outside the project's connection singleton / ✓ Import and use the project's established DB singleton or connection pool</finding>
+          <finding>MEDIUM · ARCHITECTURE · {file}:{line} / ✗ API handler fetches another internal API endpoint over HTTP / ✓ Call the service/domain layer directly</finding>
+          <finding>CRITICAL · ARCHITECTURE · {file}:{line} / ✗ Client-side code imports a server-only module / ✓ Move the logic to the server layer or expose it through an API boundary</finding>
         </findings>
       </reviewer>
 
@@ -732,7 +738,7 @@ echo "Detected framework: $FRAMEWORK  Primary ext: $PRIMARY_EXT"
     <phase id="4" name="output">
       <format>
 ```text
-SEVERITY · CATEGORY · path/to/file.ts:LINE
+SEVERITY · CATEGORY · path/to/file:LINE
   ✗ {problem}
   ✓ {fix}
 ```
