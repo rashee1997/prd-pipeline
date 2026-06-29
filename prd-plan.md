@@ -24,6 +24,8 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
       <item>Merge redundant steps unless doing so creates unsafe half-built state.</item>
       <item>Never be lazy about compatibility, security, data preservation, or tests that protect blast radius.</item>
       <item>Flag spec/codebase discrepancies; never plan around them silently.</item>
+      <item priority="critical">Treat every name in prd.md/spec.md as an unverified CLAIM until re-confirmed against the live codebase in Phase 2 — specs can go stale or contain a slipped-through hallucination. No file path/symbol/column/route/prop may appear in plan.md unless backed by a tool result from this session; an unconfirmed spec claim is a discrepancy to record, not a name to "correct" by guessing the closest match.</item>
+      <item priority="critical">Any [UNVERIFIED] marker already in spec.md must be resolved or explicitly carried into plan.md's discrepancies — never silently dropped or quietly assigned a guessed real name.</item>
     </rules>
   </system>
 
@@ -68,6 +70,10 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
         <item>Implementation order</item>
       </required-from-spec>
 
+      <inventory-claims>
+        Extract every named file path, symbol, column/field, route, and prop from PRD/spec into a "claims to verify" list, including anything spec already marked [UNVERIFIED]. Nothing on this list may reach plan.md unverified.
+      </inventory-claims>
+
       <if condition="missing-file-or-critical-section">
         <output>
           ❌ Could not validate inputs.
@@ -83,11 +89,15 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
 
     <phase id="2" name="live-codebase-validation" silent="true">
       <task>Validate the spec against the current codebase before planning.</task>
-      <principle>Only validate what the PRD/spec references or what the blast-radius map says may be affected.</principle>
+      <principle>Only validate what PRD/spec references or blast-radius flags — but everything referenced MUST be validated; there is no "trust spec" shortcut.</principle>
+
+      <verification-ledger priority="critical">
+        For every claim from Phase 1's list, record: `claim | tool used | result (confirmed file:line / NOT FOUND / FOUND-BUT-DIFFERENT: actual string)`. FOUND-BUT-DIFFERENT (e.g. spec says `userStatus`, schema has `status`) is a discrepancy to resolve in Phase 3 — never silently substitute the real name into plan.md without flagging that spec was wrong. NOT FOUND claims are never planned against as if they exist; they become discrepancies or, if intentional, explicit NEW work items.
+      </verification-ledger>
 
       <referenced-symbols>
         <step tool="mcp__serena__find_symbol">
-          Confirm each existing file/function/type/component/model named in spec exists.
+          Confirm each existing file/function/type/component/model named in spec exists, using its exact name — don't accept the first "close enough" hit.
         </step>
         <step tool="mcp__serena__get_related_symbols">
           For changed symbols, confirm callers and downstream dependents.
@@ -96,7 +106,7 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
 
       <path-conflict-check>
         <step tool="mcp__octocode__get_file_tree">
-          Confirm proposed new files do not already exist and paths fit project structure.
+          Confirm proposed new files do not already exist and paths fit project structure. New-file paths in plan.md must sit inside directories confirmed to exist.
         </step>
         <step tool="mcp__octocode__search">
           Search for recently added overlapping implementation or naming conflicts.
@@ -108,7 +118,7 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
           <step tool="mcp__octocode__search">Validate routes/contracts identified in spec.</step>
         </dimension>
         <dimension name="database">
-          <step tool="mcp__octocode__search">Validate models/tables/migrations/queries identified in spec.</step>
+          <step tool="mcp__octocode__search">Validate models/tables/migrations/queries column-by-column against the actual schema file, not spec's description of it.</step>
         </dimension>
         <dimension name="auth-security">
           <step tool="mcp__octocode__search">Validate auth/permission/token/rate-limit patterns.</step>
@@ -159,12 +169,18 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
       <task>Confirm planning can proceed safely.</task>
 
       <gate>
-        <require>All spec-referenced existing symbols either verified or flagged as discrepancy.</require>
+        <require>Every claim resolved to: confirmed / discrepancy (FOUND-BUT-DIFFERENT) / not-found-needs-creation.</require>
         <require>Blast-radius areas validated enough to sequence work safely.</require>
         <require>Enhancement frozen contracts have protection plan before implementation layers.</require>
         <require>Security-sensitive work has explicit test/verification step.</require>
         <require>Data migration or preservation work is sequenced before consumers rely on it.</require>
       </gate>
+
+      <discrepancy-classification>
+        <blocking>Spec claims a contract, schema field, or behavior exists that doesn't, and planning around it would produce code against a nonexistent target (e.g. a column that isn't in the schema).</blocking>
+        <non-blocking>Spec is imprecise but the gap can be planned for explicitly (e.g. marking a field NEW-TO-CREATE rather than EXISTING).</non-blocking>
+        <rule>Every discrepancy, blocking or not, must appear in understanding_validation.discrepancies in the final plan — non-blocking ones don't stop the run but must never disappear silently.</rule>
+      </discrepancy-classification>
 
       <if condition="blocking-discrepancy">
         <output>
@@ -191,6 +207,10 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
         <check>Does every file support a must-have requirement, safety gate, or integration boundary?</check>
         <check>If any file is estimated over 300 lines, split it.</check>
       </ponytail-checks>
+
+      <naming-discipline priority="critical">
+        Every "modified_files" path must be confirmed to exist (Phase 2 result). Every "new_files" path must be confirmed not to exist and to sit in a real, confirmed directory.
+      </naming-discipline>
 
       <output>
         FILE STRUCTURE MAP:
@@ -242,6 +262,10 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
     <phase id="6" name="write-plan">
       <path>{same folder as prd.md}/plan.md</path>
 
+      <pre-write-check priority="critical">
+        Scan every step's file paths, symbol names, and column/field references against the Phase 2 verification ledger. Anything without a "confirmed" entry must be rewritten as [UNVERIFIED: name] or [NEW: name] before the step is written.
+      </pre-write-check>
+
       <template>
 ```md
 ---
@@ -264,8 +288,11 @@ method: "{Standard|TDD}"
 
 <understanding_validation>
   <validated>true|false</validated>
+  <verification_ledger>
+    <!-- claim | tool used | result: confirmed file:line / NOT FOUND / FOUND-BUT-DIFFERENT -->
+  </verification_ledger>
   <discrepancies>
-    <!-- expected | actual | impact | action -->
+    <!-- expected | actual | impact | blocking|non-blocking | action -->
   </discrepancies>
 </understanding_validation>
 
@@ -282,10 +309,10 @@ method: "{Standard|TDD}"
 
 <file_structure_map>
   <new_files>
-    <!-- path | responsibility | exports | imports | size estimate -->
+    <!-- path (confirmed not to exist, in a confirmed real dir) | responsibility | exports | imports | size estimate -->
   </new_files>
   <modified_files>
-    <!-- path | change | affects callers -->
+    <!-- path (confirmed to exist, file:line) | change | affects callers -->
   </modified_files>
   <interface_points>
     <!-- producer | consumer | contract -->
@@ -315,18 +342,18 @@ method: "{Standard|TDD}"
     depends_on="{step numbers|none}"
     unblocks="{step numbers}">
     <files>
-      <create path="{path}">what this file contains</create>
-      <modify path="{path}">what changes and why</modify>
+      <create path="{path — confirmed available}">what this file contains</create>
+      <modify path="{path — confirmed exists, file:line}">what changes and why</modify>
     </files>
     <what_to_build>
-      <!-- 3-8 concrete bullets -->
+      <!-- 3-8 concrete bullets, using only confirmed or explicitly [NEW] names -->
     </what_to_build>
     <blast_radius_covered>
       <!-- api/db/auth/ui/workflow/integration/test/rollback -->
     </blast_radius_covered>
     <acceptance_check>{exact command or manual check}</acceptance_check>
     <watch_out_for>
-      <!-- codebase-specific gotchas -->
+      <!-- codebase-specific gotchas, each traceable to a Phase 2 finding -->
     </watch_out_for>
   </step>
 </steps>
@@ -370,8 +397,11 @@ method: "{Standard|TDD}"
 
 ## Understanding Validation
 
-| Item | Expected | Actual | Impact | Action |
-|---|---|---|---|---|
+| Claim | Tool | Result | Status |
+|---|---|---|---|
+
+| Item | Expected | Actual | Impact | Blocking? | Action |
+|---|---|---|---|---|---|
 
 ## Blast Radius Plan
 
@@ -402,10 +432,10 @@ method: "{Standard|TDD}"
 ## File Structure Map
 
 ### New Files
-- `{path}` — {responsibility}
+- `{path}` — {responsibility} _(confirmed available, sits in {confirmed dir})_
 
 ### Modified Files
-- `{path}` — {change}
+- `{path}` — {change} _(confirmed exists at {file:line})_
 
 ### Interface Points
 | Producer | Consumer | Contract |
@@ -488,7 +518,6 @@ Step X → Step Y → Done
 - [ ] Enhancement only: frozen contract tests pass
 - [ ] TDD only: each implementation step had a preceding RED test
 ```
-///
       </template>
     </phase>
 
@@ -509,6 +538,7 @@ Step X → Step Y → Done
       <rule>Every blast-radius area must be covered or explicitly marked not applicable.</rule>
       <rule>Do not schedule UI before stable API/data contracts unless mocked intentionally.</rule>
       <rule>Do not plan implementation before regression safety net for enhancements.</rule>
+      <rule>No file path/symbol/field name enters plan.md unless "confirmed" or explicitly [NEW]/[UNVERIFIED] in the verification ledger — a plan step is a build instruction, so an unverified name here becomes hallucinated code one step later.</rule>
     </critical>
   </control>
 

@@ -23,6 +23,7 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
       <item>Run blast-radius research before writing PRD/spec.</item>
       <item>If evidence is missing, research more. If still missing, mark [UNVERIFIED] instead of assuming.</item>
       <item>Enhancements require compatibility-first planning.</item>
+      <item priority="critical">No file path/symbol/route/prop/schema field may appear in prd.md or spec.md unless that exact string came from a tool result this session (Serena/Octocode/Semble/Context7/grep) and has a matching evidence_index entry with tool+file:line. No entry → [UNVERIFIED] in unverified_items, never a guess or "corrected" spelling.</item>
     </rules>
   </system>
 
@@ -49,6 +50,10 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
         enhancement if discovery has enhancement_compat_map or frozen contracts; otherwise new
       </detect>
 
+      <inherited-names>
+        Treat discovery's `verified_names` as a starting set, not final truth — re-verify any name that affects implementation (signatures, fields, paths) before relying on it; discovery may predate code changes or contain its own unresolved UNVERIFIED entries.
+      </inherited-names>
+
       <if condition="missing-or-incomplete">
         <output>
           ❌ Discovery file not found or incomplete at: $ARGUMENTS
@@ -64,8 +69,12 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
       <task>Determine what the feature can break before writing anything.</task>
 
       <evidence-principle>
-        PRD and spec must be written from verified evidence, not assumptions.
+        PRD and spec must be written from verified evidence. A claim with no traceable tool result is a guess, and guesses are forbidden in prd.md/spec.md.
       </evidence-principle>
+
+      <verification-protocol priority="critical">
+        Build a running evidence ledger: `name | tool+query | file:line`. Copy-paste, never retype from memory. If a tool returns zero matches for something expected to exist, record "no match found" — don't substitute a similarly-named symbol and assume it's the same thing. If a tool is unavailable/errors, note that in known_unknowns rather than filling the gap.
+      </verification-protocol>
 
       <project-map>
         <step tool="mcp__serena__get_overview">
@@ -74,7 +83,7 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
       </project-map>
 
       <discovery-symbol-resolution repeat="for each file, symbol, route, table, model, component, or service mentioned in discovery">
-        <step tool="mcp__serena__find_symbol">Locate exact symbol or closest owning symbol.</step>
+        <step tool="mcp__serena__find_symbol">Locate exact symbol or closest owning symbol. If discovery's name doesn't resolve, report the discrepancy — don't silently swap in a variant.</step>
         <step tool="mcp__serena__get_symbol_info">Record signature, fields, props, return type, path, comments.</step>
         <step tool="mcp__serena__get_related_symbols">Record callers, callees, imports, dependents.</step>
       </discovery-symbol-resolution>
@@ -138,7 +147,7 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
         <libraries repeat="for each library/API that spec may use">
           <step tool="mcp__context7__resolve_library_id">Resolve exact library.</step>
           <step tool="mcp__context7__get_library_docs">Fetch targeted API docs only.</step>
-          <record>library, version if found, method signatures, constraints, gotchas</record>
+          <record>library, version if found, method signatures, constraints, gotchas — exactly as shown in fetched docs</record>
         </libraries>
 
         <github repeat="for each non-trivial pattern">
@@ -167,6 +176,7 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
         <require>External patterns verified for non-trivial design choices.</require>
         <require>Enhancement frozen contracts and callers identified before PRD/spec writing.</require>
         <require>Known unknowns listed explicitly.</require>
+        <require>Every ledger name has a tool+file:line source; names without one drop to [UNVERIFIED] before Phase 3.</require>
       </blast-radius-gate>
     </phase>
 
@@ -179,6 +189,7 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
         <rule>Requirements must reflect blast-radius findings.</rule>
         <rule>Out-of-scope and deferred items must be explicit.</rule>
         <rule>Security and compatibility requirements must not be generic; they must be feature-specific.</rule>
+        <rule>codebase_evidence entries must carry file:line; any code-naming claim elsewhere traces back to one or is [UNVERIFIED] in known_unknowns.</rule>
       </rules>
 
       <template>
@@ -201,9 +212,9 @@ discovery_file: "{$ARGUMENTS}"
 
 <evidence_summary>
   <discovery_decisions><!-- key decisions from discovery --></discovery_decisions>
-  <codebase_evidence><!-- files/symbols/patterns used --></codebase_evidence>
-  <external_evidence><!-- docs/github patterns used --></external_evidence>
-  <known_unknowns><!-- explicitly unresolved items --></known_unknowns>
+  <codebase_evidence><!-- file:line | symbol/area | tool used | what it supports --></codebase_evidence>
+  <external_evidence><!-- docs/github patterns used, with source link/id --></external_evidence>
+  <known_unknowns><!-- explicitly unresolved items, including any [UNVERIFIED] names --></known_unknowns>
 </evidence_summary>
 
 <blast_radius>
@@ -262,14 +273,14 @@ discovery_file: "{$ARGUMENTS}"
 - ...
 
 ### 2.2 Codebase Evidence Used
-| Evidence | Source | Used For |
-|---|---|---|
+| Evidence (exact name) | File:Line | Tool | Used For |
+|---|---|---|---|
 
 ### 2.3 External Evidence Used
-| Pattern/API | Source | Used For |
+| Pattern/API (exact name) | Source | Used For |
 |---|---|---|
 
-### 2.4 Known Unknowns
+### 2.4 Known Unknowns / [UNVERIFIED]
 - ...
 
 ## 3. Blast Radius
@@ -342,7 +353,7 @@ discovery_file: "{$ARGUMENTS}"
 
 ## 7. Functional Requirements
 
-| ID | Requirement | Acceptance Criteria | Priority | Evidence |
+| ID | Requirement | Acceptance Criteria | Priority | Evidence (table 2.2/2.3 ref) |
 |---|---|---|---|---|
 
 ## 8. Non-Functional Requirements
@@ -397,7 +408,6 @@ discovery_file: "{$ARGUMENTS}"
 ## Appendix: Discovery Reference
 Discovery file: {$ARGUMENTS}
 ```
-///
       </template>
     </phase>
 
@@ -405,13 +415,14 @@ Discovery file: {$ARGUMENTS}
       <path>{same folder as discovery.md}/spec.md</path>
 
       <rules>
-        <rule>Every existing file path must be real.</rule>
-        <rule>Every existing symbol must be verified.</rule>
-        <rule>Every new file must be justified by module boundaries.</rule>
-        <rule>Every route must cite a reference implementation.</rule>
-        <rule>Every schema/query must cite existing DB pattern or verified docs.</rule>
+        <rule>Every existing file path must be real — copy-pasted from a tool result, never typed from inference.</rule>
+        <rule>Every existing symbol/function/route/prop/field name must have an evidence_index entry with file:line.</rule>
+        <rule>Every new file/symbol must be clearly marked NEW (never confused with an existing one).</rule>
+        <rule>Every route must cite a reference implementation with file:line, or be marked [UNVERIFIED — no reference found].</rule>
+        <rule>Every schema/query must cite an existing DB pattern (file:line) or verified docs — never a plausible-looking field name.</rule>
         <rule>Every section must be implementable without reading other sections.</rule>
         <rule>Enhancement specs must begin with compatibility constraints.</rule>
+        <rule priority="critical">Before finalizing, scan every name used in sections 4-13 against the evidence_index. Unmatched names become [UNVERIFIED: <best guess>] in unverified_items — never left unsourced in the body.</rule>
       </rules>
 
       <template>
@@ -426,13 +437,13 @@ status: "Draft"
 
 <evidence_index>
   <codebase_sources>
-    <!-- id | file | symbol | lines/notes | supports -->
+    <!-- id | exact file path | exact symbol/name | file:line | tool that found it | supports -->
   </codebase_sources>
   <external_sources>
-    <!-- id | library/repo | topic/file | supports -->
+    <!-- id | library/repo | topic/file | source link/id | supports -->
   </external_sources>
   <unverified_items>
-    <!-- item | why unresolved | required before implementation -->
+    <!-- item (as [UNVERIFIED: name]) | why unresolved | required before implementation -->
   </unverified_items>
 </evidence_index>
 
@@ -478,12 +489,12 @@ status: "Draft"
 ## 1. Evidence Index
 
 ### 1.1 Codebase Sources
-| ID | File | Symbol/Area | Supports |
-|---|---|---|---|
+| ID | File | Symbol/Area (exact) | File:Line | Tool | Supports |
+|---|---|---|---|---|---|
 
 ### 1.2 External Sources
-| ID | Library/Repo | Topic/File | Supports |
-|---|---|---|---|
+| ID | Library/Repo | Topic/File | Source | Supports |
+|---|---|---|---|---|
 
 ### 1.3 Unverified Items
 | Item | Risk | Required Before |
@@ -521,7 +532,7 @@ status: "Draft"
 ...
 
 ### 3.2 Architecture Decisions
-| Decision | Choice | Rationale | Evidence |
+| Decision | Choice | Rationale | Evidence (id from 1.1/1.2) |
 |---|---|---|---|
 
 ### 3.3 Module Boundaries
@@ -534,14 +545,14 @@ status: "Draft"
 
 ## 4. Database Schema
 
-### 4.1 New Models
+### 4.1 New Models (mark NEW — not in current schema)
 ```prisma
 model Example {
   id String @id
 }
 ```
 
-### 4.2 Existing Model Changes
+### 4.2 Existing Model Changes (must cite evidence id for current shape)
 ...
 
 ### 4.3 Migration Strategy
@@ -558,7 +569,7 @@ For each route:
 
 **Purpose:** ...  
 **Auth:** ...  
-**Auth reference:** {existing file}  
+**Auth reference:** {evidence id, file:line}  
 **Request schema:**  
 ```ts
 ...
@@ -580,15 +591,15 @@ For each route:
 **Blast-radius notes:**  
 - ...
 
-**Reference implementation:** {existing route file}
+**Reference implementation:** {evidence id, file:line — or "[UNVERIFIED — no reference found]"}
 
 ## 6. Component Design
 
 For each component:
 
-### 6.X {ComponentName}
+### 6.X {ComponentName} (mark NEW if not existing)
 
-**Path:** ...  
+**Path:** ... (evidence id if existing)  
 **Type:** Server | Client | Shared  
 **Purpose:** ...  
 **Props:**  
@@ -601,15 +612,15 @@ interface Props {
 **Behavior:**  
 - ...
 
-**Existing pattern reference:** ...
+**Existing pattern reference:** {evidence id, file:line}
 
 ## 7. Shared Utilities & Services
 
 For each utility:
 
-### 7.X `{functionName}`
+### 7.X `{functionName}` (mark NEW if not existing)
 
-**Path:** ...  
+**Path:** ... (evidence id if existing)  
 **Signature:**  
 ```ts
 ...
@@ -617,7 +628,7 @@ For each utility:
 
 **Purpose:** ...  
 **Called by:** ...  
-**Evidence:** ...
+**Evidence:** {evidence id, file:line}
 
 ## 8. Workflow, Events, and State
 
@@ -632,7 +643,7 @@ For each utility:
 
 ## 9. Integrations
 
-| Integration | Function/API | Config | Failure Handling | Evidence |
+| Integration | Function/API (exact) | Config | Failure Handling | Evidence id |
 |---|---|---|---|---|
 
 ## 10. Security Design
@@ -687,8 +698,11 @@ For each utility:
 | Variable | Purpose | Example | Required |
 |---|---|---|---|
 ```
-///
       </template>
+
+      <pre-final-check priority="critical">
+        Before saving, re-read sections 4-13 and verify every named file/symbol/route/field/prop appears in evidence_index (1.1/1.2) with matching file:line, or is [UNVERIFIED: name] in 1.3. Do not save a spec containing an unsourced existing-code claim.
+      </pre-final-check>
     </phase>
 
   </flow>
@@ -702,6 +716,8 @@ For each utility:
       <rule>Do not omit security impact.</rule>
       <rule>Do not specify external/library APIs without verification.</rule>
       <rule>For enhancements, frozen contracts must appear before implementation order.</rule>
+      <rule>Never fabricate a file:line citation — a made-up citation is worse than none.</rule>
+      <rule>Any name in prd.md/spec.md body text must resolve to an evidence entry; unresolved names become [UNVERIFIED], never silently "cleaned up" into a guessed real name.</rule>
     </critical>
   </control>
 

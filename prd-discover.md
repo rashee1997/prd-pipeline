@@ -23,6 +23,7 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
       <item>Do not ask generic PRD questions if a codebase-specific question is available.</item>
       <item>Do not write requirements in this command.</item>
       <item>Maximum 12 questions. If more are needed, flag scope as too large.</item>
+      <item priority="critical">No name (model/table/function/route/prop/field) may appear anywhere in output unless copy-pasted from a tool result in this session. Unconfirmed names → label `UNVERIFIED:` and ask the user instead of stating as fact. If a tool finds no match, say so — never substitute a similar-looking name.</item>
     </rules>
   </system>
 
@@ -69,6 +70,10 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
 
     <phase id="1" name="research" silent="true">
       <task>Understand current system, likely affected areas, and external implementation patterns before Q&A.</task>
+
+      <verification-protocol priority="critical">
+        Maintain a verified-names list as you research: `name | tool+query | file:line`. Only names on this list may appear later. Names not found via a tool ("typical" names from memory don't count) get marked UNVERIFIED, not stated as fact.
+      </verification-protocol>
 
       <project-overview>
         <step tool="mcp__serena__get_overview">
@@ -124,7 +129,7 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
       </feature-mode-detection>
 
       <blast-radius-map>
-        <task>Before asking the user anything, identify what this feature might affect.</task>
+        <task>Before asking the user anything, identify what this feature might affect. Write "none found" rather than a plausible guess where evidence is thin.</task>
         <collect>
           <area name="api">Existing routes/endpoints that may change or be reused.</area>
           <area name="db">Tables/models/columns touched or likely needed.</area>
@@ -199,6 +204,7 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
         <rule>Every question must include why it matters for the PRD/spec.</rule>
         <rule>For architecture decisions, present alternatives and tradeoffs.</rule>
         <rule>Do not dump the full question bank; ask one at a time.</rule>
+        <rule>Any name referenced in a question must already be on the verified-names list.</rule>
       </question-quality-rules>
     </phase>
 
@@ -209,7 +215,7 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
 
         I researched the codebase and external implementation patterns for "{feature}".
 
-        **Relevant code found:**
+        **Relevant code found:** (file:line)
         - {file/symbol} — {what it does}
         - {file/symbol} — {what it does}
 
@@ -218,8 +224,8 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
         - {missing integration}
 
         **Potential blast radius:**
-        - API: {affected routes or none found}
-        - Data: {tables/models likely affected}
+        - API: {affected routes or "none found"}
+        - Data: {tables/models likely affected or "none found"}
         - Auth/Security: {auth or permission areas}
         - UI: {pages/components likely affected}
         - Integrations: {email/storage/jobs/etc}
@@ -239,7 +245,7 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
 
         I found existing behavior related to "{feature}", so this is an enhancement.
 
-        **Current implementation:**
+        **Current implementation:** (file:line)
         - {file path} — {current behavior}
         - {file path} — {current behavior}
 
@@ -272,6 +278,7 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
         <rule>Ground questions in research findings.</rule>
         <rule>Include alternatives for architectural choices.</rule>
         <rule>Ask design-for-isolation before finishing.</rule>
+        <rule>Never state a code fact without a tool-verified source — re-check or ask instead.</rule>
       </rules>
 
       <response-template>
@@ -326,9 +333,13 @@ mode: "{new|enhancement}"
   </external_patterns>
 </research_summary>
 
+<verified_names>
+  <!-- name | source tool+query | file:line — every name used above/below must appear here, or be UNVERIFIED -->
+</verified_names>
+
 <blast_radius>
-  <api><!-- existing/new routes likely affected --></api>
-  <database><!-- tables/models/columns/data migrations --></database>
+  <api><!-- existing/new routes likely affected, or "none found" --></api>
+  <database><!-- tables/models/columns/data migrations, or "none found" --></database>
   <auth_security><!-- auth, permissions, tokens, PII, rate limits --></auth_security>
   <ui><!-- pages/components/navigation affected --></ui>
   <workflow><!-- state machines, jobs, notifications, events --></workflow>
@@ -388,6 +399,10 @@ mode: "{new|enhancement}"
 ### External Pattern Findings
 - ...
 
+## Verified Names
+| Name | Source | File:Line |
+|---|---|---|
+
 ## Blast Radius
 - API:
 - Database:
@@ -426,7 +441,6 @@ mode: "{new|enhancement}"
 | # | Question | Owner | Due |
 |---|---|---|---|
 ```
-///
       </template>
 
       <final-output>
@@ -449,6 +463,7 @@ mode: "{new|enhancement}"
       <rule>Do not skip blast-radius mapping.</rule>
       <rule>Do not ask generic questions before code-grounded questions.</rule>
       <rule>Do not omit external pattern findings if they affect architecture.</rule>
+      <rule>Never state a name that isn't in the verified-names list; mark UNVERIFIED instead of guessing or "fixing" spelling/casing.</rule>
     </critical>
   </control>
 
