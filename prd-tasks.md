@@ -160,6 +160,26 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
         <must_have>done signal</must_have>
       </task_shape>
 
+      <context-budget>
+        <principle>Every task has a token budget. If the estimated context exceeds the hard cap, the task must fail loudly with NEEDS_CONTEXT rather than silently truncating critical instructions.</principle>
+        <estimate>
+          <item>Context template overhead: 200 tokens</item>
+          <item>XML tags (role/context/mcp_requirements/task/constraints/acceptance/commit/done): 150 tokens</item>
+          <item>Role and behavioral contract: 50-100 tokens</item>
+          <item>Task-specific context with code snippets: 100-400 tokens</item>
+          <item>Acceptance commands + commit template: 50-100 tokens</item>
+          <item>Total typical: 550-950 tokens. Cap at 1200.</item>
+        </estimate>
+        <complexity-tags>
+          <minimal>1-2 steps, 1 file create/modify, no new patterns. Budget: ≤600 tokens. Simple tasks skip full MCP Evidence Log — only nearest_pattern required.</minimal>
+          <normal>3-6 steps, 1-2 files. Standard MCP evidence. Budget: 600-1000 tokens.</normal>
+          <complex>Cross-cutting, new patterns, compat-sensitive, security. Full MCP evidence. Budget: 1000-1200 tokens.</complex>
+        </complexity-tags>
+        <overflow>
+          If context would exceed the hard cap, split the task. Do not truncate content — a task with missing instructions produces hallucinated code.
+        </overflow>
+      </context-budget>
+
       <split_if>
         <signal>More than 2 files created</signal>
         <signal>DB schema and API logic together</signal>
@@ -167,7 +187,9 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
         <signal>Reusable utility needed by multiple tasks</signal>
         <signal>More than one distinct acceptance check</signal>
         <signal>Context would exceed 600 words</signal>
+        <signal>Context budget exceeds hard cap (1200 tokens)</signal>
         <signal>Task crosses security boundary and UI boundary</signal>
+        <signal>A file the task creates or modifies would exceed ~350 lines</signal>
       </split_if>
 
       <keep_together_if>
@@ -278,6 +300,8 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
 **Depends on:** {TASK-IDs|none — start immediately}  
 **Unblocks:** {TASK-IDs}  
 **Estimated effort:** {1-4 hours}  
+**Complexity:** {minimal|normal|complex}  
+**Context budget:** {estimated tokens} tokens estimated · {cap} tokens hard cap  
 **Compat-sensitive:** {YES — frozen contract: {name}|NO}
 
 ---
@@ -562,6 +586,8 @@ DONE | DONE_WITH_CONCERNS | BLOCKED | MCP_EVIDENCE_MISSING
       <rule>Every task must require MCP Evidence Log before implementation.</rule>
       <rule>Every task must forbid Bash cat/grep/sed as first-line implementation research when MCP is available.</rule>
       <rule>Every task acceptance must include MCP Evidence Log completion.</rule>
+      <rule>Every task must have a context budget estimated in its frontmatter. Minimal tasks skip full MCP Evidence Log — only nearest_pattern required.</rule>
+      <rule>If estimated context exceeds the hard cap, split — never silently truncate. Silent truncation causes hallucinated code.</rule>
       <rule>Enhancement: TASK-0-01 is always frozen-contract regression tests.</rule>
       <rule>Enhancement: TASK-CUTOVER-01 is human-gated.</rule>
       <rule>Implementation is blocked until /prd-validate passes.</rule>

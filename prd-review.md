@@ -145,10 +145,12 @@ cat {prd-folder}/tasks/index.md
           <check>Protected routes call auth before logic.</check>
           <check>Frozen contracts remain intact.</check>
           <check>New schema models exist.</check>
+          <check>Faithfulness — code behavior matches acceptance criteria exactly, not just "passes tests." Code that passes tests but does something different from the acceptance criteria is DRIFT, not done.</check>
         </checklist>
 
         <findings>
           <finding condition="FR missing">CRITICAL · SPEC · (no file):0 / ✗ FR-{id} not implemented / ✓ Implement per spec</finding>
+          <finding condition="faithfulness drift">CRITICAL · SPEC · {file}:{line} / ✗ Code behavior drifts from acceptance criteria — passes tests but does something different from stated intent / ✓ Reconcile code behavior with acceptance criteria; criteria are truth</finding>
           <finding condition="route missing">CRITICAL · SPEC · {path}:0 / ✗ Route {METHOD} {path} missing / ✓ Create per spec</finding>
           <finding condition="bad response shape">HIGH · SPEC · {file}:{line} / ✗ Response shape deviates from spec / ✓ Match spec shape</finding>
           <finding condition="auth missing">CRITICAL · SECURITY · {file}:{line} / ✗ Auth required by spec but auth() not called / ✓ Call auth() before logic</finding>

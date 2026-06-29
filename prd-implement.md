@@ -373,10 +373,19 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
         <phase name="N/A">Implement task and tests together only where task shape requires it.</phase>
       </tdd>
 
+      <re-anchoring>
+        <principle>Prevent goal drift mid-task by re-reading the original objective at the midpoint.</principle>
+        <checkpoint at="50%">
+          <task>Re-read the task goal and acceptance criteria from the task file. Restate the original objective in one sentence. Confirm the current action directly advances it. If it doesn't, stop and realign.</task>
+          <rationale>Long-running agents drift from the original goal as context fills. Re-anchoring at the midpoint forces the objective back to the top of the attention distribution. Research (Wire, 2026; Zylos, 2026) shows this is the single most effective drift countermeasure.</rationale>
+        </checkpoint>
+      </re-anchoring>
+
       <quality>
         <typescript>explicit return types, no any, no unsafe casts, no ! without proof</typescript>
         <security>Zod at boundaries, auth before logic, generic errors, secure tokens</security>
         <maintainability>single responsibility, named constants, early returns, no duplicate logic</maintainability>
+        <file-size>If adding code would push any file past 400 lines, split it into a new file with a clear responsibility boundary first. Monolithic files cause agent drift and context saturation.</file-size>
         <ui condition="UI_TASK">tokens only, mobile-first, shadcn/ui primitives, loading/empty/error/focus/disabled states</ui>
         <pattern>mirror nearest existing implementation structure</pattern>
       </quality>

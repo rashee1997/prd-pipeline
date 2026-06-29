@@ -176,6 +176,7 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
         <check name="parallel">Parallel-safe claims include no overlapping file sets.</check>
         <check name="files">Files to create, modify, or delete are explicit.</check>
         <check name="acceptance">Acceptance command is exact and proves the task outcome.</check>
+        <check name="ears-format" condition="prd/spec uses EARS">Check spec acceptance criteria use EARS keywords (WHEN/WHILE/IF/WHERE + SHALL). If any criterion uses free-form prose instead of EARS, flag as warning — structured criteria improve testability and reduce agent ambiguity.</check>
         <check name="commit">Commit block uses explicit file paths only.</check>
         <check name="done_signal">DONE, DONE_WITH_CONCERNS, NEEDS_CONTEXT, BLOCKED are present where applicable.</check>
       </per-task-checks>

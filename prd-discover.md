@@ -69,6 +69,68 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
       </if>
     </phase>
 
+    <phase id="0.5" name="complexity-routing" silent="true">
+      <task>Classify task complexity before allocating research resources. Simpler tasks skip expensive research phases.</task>
+
+      <classifiers>
+        <heuristic name="file-count">Count unique files the feature likely touches. Use mcp__semble__search to find related files. If unsure, assume higher bound.</heuristic>
+        <heuristic name="api-surface">Does the feature add or change API routes? (yes|no)</heuristic>
+        <heuristic name="schema-change">Does the feature add or change DB models/tables/columns? (yes|no)</heuristic>
+        <heuristic name="new-auth">Does the feature introduce new auth/permission logic? (yes|no)</heuristic>
+        <heuristic name="unclear-dimensions">Are there domains (API/DB/auth/UI/integrations) with zero code evidence where the impact is unclear? (yes|no)</heuristic>
+      </classifiers>
+
+      <complexity-levels>
+        <level name="trivial" budget="minimal">
+          <matches>file-count ≤ 3 AND no new-api AND no schema-change AND no new-auth AND no unclear-dimensions</matches>
+          <description>Single contract change, CSS fix, copy update, config tweak. Needs minimal research.</description>
+        </level>
+        <level name="simple" budget="light">
+          <matches>(file-count ≤ 6 AND api-surface=yes AND no schema-change AND no new-auth) OR (file-count 4-8 AND no unclear-dimensions)</matches>
+          <description>Small feature with clear scope, minor API change, no new models. Standard research, skip external patterns.</description>
+        </level>
+        <level name="complex" budget="full">
+          <matches>default — anything that doesn't match trivial or simple</matches>
+          <description>New feature, cross-cutting change, new models, new auth, or unclear dimensions. Full research pipeline.</description>
+        </level>
+      </complexity-levels>
+
+      <routing>
+        <if condition="complexity=trivial">
+          <reason>Trivial scope — ≤3 files, no schema, no new auth, no unknowns. Deep research would waste tokens on a clear target.</reason>
+          <skip-phase ref="research" reason="Trivial scope doesn't warrant full research pipeline."/>
+          <skip-phase ref="project-overview" reason="Trivial scope — overview not needed."/>
+          <skip-phase ref="external-pattern-research" reason="Trivial scope — no external patterns needed."/>
+          <output-size>target 200-400 lines in discovery.md</output-size>
+          <question-limit>max 3 questions</question-limit>
+          <flow>Continue to phase 2 (precision-question-bank) directly, then interactive-qa, then save.</flow>
+        </if>
+        <if condition="complexity=simple">
+          <reason>Simple scope — clear boundaries, minimal unknowns. Skip external patterns but run full code research.</reason>
+          <skip-phase ref="external-pattern-research" reason="Simple scope — implementation patterns are already clear from code."/>
+          <output-size>target 400-700 lines in discovery.md</output-size>
+          <question-limit>max 7 questions</question-limit>
+          <flow>Continue to phase 1 (research) skipping external-pattern-research, then full Q&A and save.</flow>
+        </if>
+        <else>
+          <reason>Complex scope — treat with full research pipeline.</reason>
+          <output-size>target 700-1200+ lines in discovery.md</output-size>
+          <question-limit>max 12 questions</question-limit>
+          <flow>Continue to phase 1 (research) with all sub-phases, then full Q&A and save.</flow>
+        </else>
+      </routing>
+
+      <evidence-record>
+        <step>Log the classification decision in discovery.md under a <complexity_routing> section:
+          - Complexity level
+          - Heuristic values (file-count, api-surface, schema-change, new-auth, unclear-dimensions)
+          - Rationale for level assignment
+          - Phases skipped (if any)
+          - Budget/target output size
+        </step>
+      </evidence-record>
+    </phase>
+
     <phase id="1" name="research" silent="true">
       <task>Understand current system, likely affected areas, and external implementation patterns before Q&A.</task>
 
@@ -238,6 +300,7 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
         I’ll ask one question at a time.
 
         ---
+        **Complexity:** {trivial|simple|complex} — {one-line reason}. {Question budget}.
         **Question 1 of {N}:** {highest-impact grounded question}
       </opening>
 
@@ -264,6 +327,8 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
         - Rollback risk: {risk}
 
         ⚠️ Compatibility decisions come first.
+
+        **Complexity:** {trivial|simple|complex} — {one-line reason}. {Question budget}.
 
         ---
         **Question 1 of {N}:**
@@ -338,6 +403,20 @@ mode: "{new|enhancement}"
   <!-- name | source tool+query | file:line — every name used above/below must appear here, or be UNVERIFIED -->
 </verified_names>
 
+<complexity_routing>
+  <level><!-- trivial | simple | complex --></level>
+  <heuristics>
+    <file_count><!-- number --></file_count>
+    <api_surface><!-- yes | no --></api_surface>
+    <schema_change><!-- yes | no --></schema_change>
+    <new_auth><!-- yes | no --></new_auth>
+    <unclear_dimensions><!-- yes | no --></unclear_dimensions>
+  </heuristics>
+  <rationale><!-- why this level was chosen --></rationale>
+  <skipped_phases><!-- phases skipped due to complexity --></skipped_phases>
+  <output_budget><!-- target lines --></output_budget>
+</complexity_routing>
+
 <blast_radius>
   <api><!-- existing/new routes likely affected, or "none found" --></api>
   <database><!-- tables/models/columns/data migrations, or "none found" --></database>
@@ -393,6 +472,13 @@ mode: "{new|enhancement}"
 {$ARGUMENTS}
 
 ## Research Summary
+
+### Complexity Routing
+- **Level:** {trivial|simple|complex}
+- **Heuristics:** file-count={N}, api-surface={yes|no}, schema-change={yes|no}, new-auth={yes|no}, unclear-dimensions={yes|no}
+- **Rationale:** {why this level was chosen}
+- **Skipped phases:** {phases skipped, or "none"}
+- **Output budget:** {target lines}
 
 ### Codebase Findings
 - ...

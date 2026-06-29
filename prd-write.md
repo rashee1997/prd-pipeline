@@ -90,43 +90,43 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
       </discovery-symbol-resolution>
 
       <blast-radius-dimensions>
-        <dimension name="api">
+        <dimension name="api" condition="if discovery mentions API routes/endpoints or feature clearly affects HTTP contracts">
           <search tool="mcp__octocode__search">route handlers, endpoints, request/response types near feature domain</search>
           <read tool="mcp__octocode__get_file" count="2-5">closest route files</read>
           <extract>routes touched, contract shapes, auth, status codes, response conventions, consumers</extract>
         </dimension>
 
-        <dimension name="database">
+        <dimension name="database" condition="if feature adds/changes models, columns, queries, or migrations">
           <search tool="mcp__octocode__search">db/prisma usage for relevant models and adjacent models</search>
           <read tool="mcp__octocode__get_file" count="2-5">query files and schema/model files</read>
           <extract>models, relations, required fields, indexes, migrations, destructive-risk areas</extract>
         </dimension>
 
-        <dimension name="auth-security">
+        <dimension name="auth-security" condition="if feature involves new permissions, roles, tokens, public access, or rate limits">
           <search tool="mcp__octocode__search">auth(), permissions, role checks, token validation, public routes</search>
           <read tool="mcp__octocode__get_file" count="2-5">auth-protected and public route examples</read>
           <extract>auth pattern, permission model, unauth response, public access safeguards, rate-limit patterns</extract>
         </dimension>
 
-        <dimension name="ui">
+        <dimension name="ui" condition="if feature involves user-facing pages, components, navigation, or UI state">
           <search tool="mcp__octocode__search">pages/components/hooks related to the feature domain</search>
           <read tool="mcp__octocode__get_file" count="2-5">relevant UI components/pages</read>
           <extract>component boundaries, props, data fetching, state, design system conventions</extract>
         </dimension>
 
-        <dimension name="workflow-events">
+        <dimension name="workflow-events" condition="if feature involves state machines, jobs, events, notifications, or background processing">
           <search tool="mcp__octocode__search">workflow, status, state transition, event, notification, job, queue terms</search>
           <read tool="mcp__octocode__get_file" count="2-5">workflow/event/job files</read>
           <extract>state machine rules, side effects, jobs, notifications, status constraints</extract>
         </dimension>
 
-        <dimension name="integrations">
+        <dimension name="integrations" condition="if feature involves email, storage, webhooks, external APIs, uploads, or exports">
           <search tool="mcp__octocode__search">email, provider, storage, webhook, external API, upload, export terms</search>
           <read tool="mcp__octocode__get_file" count="1-4">integration files</read>
           <extract>integration APIs, error handling, retry behavior, configuration</extract>
         </dimension>
 
-        <dimension name="tests">
+        <dimension name="tests" condition="always — tests are always impacted">
           <search tool="mcp__octocode__search">existing tests around affected modules and frozen contracts</search>
           <read tool="mcp__octocode__get_file" count="2-5">closest test files</read>
           <extract>mocking style, test setup, regression gaps, contract tests needed</extract>
@@ -170,7 +170,7 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
 
       <blast-radius-gate>
         <require>All discovery-mentioned code references resolved or marked [UNVERIFIED].</require>
-        <require>API, DB, auth/security, UI, workflow, integration, and test impacts assessed.</require>
+        <require>API, DB, auth/security, UI, workflow, integration, and test impacts assessed. If a dimension has zero evidence of impact, skip its research section and note "no evidence of impact — section skipped" in output. Do not perform zero-info research.</require>
         <require>External patterns verified for non-trivial design choices.</require>
         <require>Enhancement frozen contracts and callers identified before PRD/spec writing.</require>
         <require>Known unknowns listed explicitly.</require>
@@ -183,7 +183,7 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
 
       <rules>
         <rule>PRD is a contract: testable, scoped, and grounded.</rule>
-        <rule>Each requirement must include acceptance criteria.</rule>
+        <rule>Each requirement must include acceptance criteria in EARS notation (WHEN/WHILE/IF/WHERE + THE system SHALL).</rule>
         <rule>Requirements must reflect blast-radius findings.</rule>
         <rule>Out-of-scope and deferred items must be explicit.</rule>
         <rule>Security and compatibility requirements must not be generic; they must be feature-specific.</rule>
@@ -216,14 +216,14 @@ discovery_file: "{$ARGUMENTS}"
 </evidence_summary>
 
 <blast_radius>
-  <api/>
-  <database/>
-  <auth_security/>
-  <ui/>
-  <workflow_events/>
-  <integrations/>
+  <api condition="if-relevant"/>
+  <database condition="if-relevant"/>
+  <auth_security condition="if-relevant"/>
+  <ui condition="if-relevant"/>
+  <workflow_events condition="if-relevant"/>
+  <integrations condition="if-relevant"/>
   <tests/>
-  <rollback/>
+  <rollback condition="if-relevant"/>
 </blast_radius>
 
 <background>
@@ -283,29 +283,30 @@ discovery_file: "{$ARGUMENTS}"
 
 ## 3. Blast Radius
 
+<!-- Include only sections relevant to this feature. Skip any dimension with zero evidence of impact. -->
 ### 3.1 API Impact
-...
+<!-- skip if no API evidence -->
 
 ### 3.2 Database/Data Impact
-...
+<!-- skip if no DB evidence -->
 
 ### 3.3 Auth & Security Impact
-...
+<!-- skip if no auth evidence -->
 
 ### 3.4 UI Impact
-...
+<!-- skip if no UI evidence -->
 
 ### 3.5 Workflow/Event Impact
-...
+<!-- skip if no workflow evidence -->
 
 ### 3.6 Integration Impact
-...
+<!-- skip if no integration evidence -->
 
 ### 3.7 Test/Regression Impact
-...
+<!-- always include -->
 
 ### 3.8 Rollback Impact
-...
+<!-- skip if no rollback considerations -->
 
 ## 4. Background & Context
 
@@ -351,7 +352,15 @@ discovery_file: "{$ARGUMENTS}"
 
 ## 7. Functional Requirements
 
-| ID | Requirement | Acceptance Criteria | Priority | Evidence (table 2.2/2.3 ref) |
+<!-- Use EARS notation for all acceptance criteria. Patterns:
+  Ubiquitous: THE system SHALL <behavior>
+  Event-driven: WHEN <trigger> THE system SHALL <response>
+  State-driven: WHILE <state> THE system SHALL <behavior>
+  Unwanted: IF <error> THEN THE system SHALL <response>
+  Optional: WHERE <feature-flag> THE system SHALL <behavior>
+-->
+
+| ID | Requirement | Acceptance Criteria (EARS) | Priority | Evidence (table 2.2/2.3 ref) |
 |---|---|---|---|---|
 
 ## 8. Non-Functional Requirements
@@ -420,6 +429,7 @@ Discovery file: {$ARGUMENTS}
         <rule>Every schema/query must cite an existing DB pattern (file:line) or verified docs — never a plausible-looking field name.</rule>
         <rule>Every section must be implementable without reading other sections.</rule>
         <rule>Enhancement specs must begin with compatibility constraints.</rule>
+        <rule>For each spec section 4-13, compute a short content hash (first 8 chars of SHA-256 of the section body) and record in drift_anchors below.</rule>
         <rule priority="critical">Before finalizing, scan every name used in sections 4-13 against the evidence_index. Unmatched names become [UNVERIFIED: <best guess>] in unverified_items — never left unsourced in the body.</rule>
       </rules>
 
@@ -446,14 +456,14 @@ status: "Draft"
 </evidence_index>
 
 <blast_radius_map>
-  <api/>
-  <database/>
-  <auth_security/>
-  <ui/>
-  <workflow_events/>
-  <integrations/>
+  <api condition="if-relevant"/>
+  <database condition="if-relevant"/>
+  <auth_security condition="if-relevant"/>
+  <ui condition="if-relevant"/>
+  <workflow_events condition="if-relevant"/>
+  <integrations condition="if-relevant"/>
   <tests/>
-  <rollback/>
+  <rollback condition="if-relevant"/>
 </blast_radius_map>
 
 <architecture>
@@ -480,6 +490,9 @@ status: "Draft"
 <testing/>
 <compatibility_layer condition="enhancement"/>
 <implementation_order/>
+<drift_anchors>
+  <!-- section_id | section_title | content_hash(first 8 of sha256) -->
+</drift_anchors>
 <environment/>
 
 ---
@@ -500,29 +513,30 @@ status: "Draft"
 
 ## 2. Blast Radius Map
 
+<!-- Include only dimensions with evidence. Skip irrelevant ones. -->
 ### 2.1 API
-...
+<!-- skip if no API evidence -->
 
 ### 2.2 Database
-...
+<!-- skip if no DB evidence -->
 
 ### 2.3 Auth/Security
-...
+<!-- skip if no auth evidence -->
 
 ### 2.4 UI
-...
+<!-- skip if no UI evidence -->
 
 ### 2.5 Workflow/Events
-...
+<!-- skip if no workflow evidence -->
 
 ### 2.6 Integrations
-...
+<!-- skip if no integration evidence -->
 
 ### 2.7 Tests
-...
+<!-- always include -->
 
 ### 2.8 Rollback
-...
+<!-- skip if no rollback considerations -->
 
 ## 3. Architecture Overview
 
@@ -695,6 +709,15 @@ For each utility:
 
 | Variable | Purpose | Example | Required |
 |---|---|---|---|
+
+## 16. Drift Anchors
+
+<!-- Content hashes for drift detection. Each hash = first 8 chars of SHA-256 of section body. -->
+| Section | Title | Hash |
+|---------|-------|------|
+| 4 | Database Schema | `...` |
+| 5 | API Design | `...` |
+| ... | ... | `...` |
 ```
       </template>
 

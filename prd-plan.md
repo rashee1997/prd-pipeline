@@ -205,7 +205,7 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
         <check>Does any file duplicate existing code?</check>
         <check>Can multiple tiny steps be merged safely?</check>
         <check>Does every file support a must-have requirement, safety gate, or integration boundary?</check>
-        <check>If any file is estimated over 300 lines, split it.</check>
+        <check priority="high">If any file is estimated over 300 lines (400 absolute max), split it. Monolithic files overwhelm agent context windows and cause drift. Every file must serve one clear responsibility.</check>
       </ponytail-checks>
 
       <naming-discipline priority="critical">
@@ -224,6 +224,24 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
 
     <phase id="5" name="dependency-graph">
       <task>Build the shortest safe dependency graph.</task>
+
+      <decomposition-guidance>
+        <principle>Optimal granularity varies by complexity. Too few steps → each step is too complex. Too many → coordination overhead dominates.</principle>
+        <heuristic name="dgi-scaling">Target subtask count ≈ 0.85 × S × √S where S = estimated sequential reasoning steps. This follows DGI* ≈ 0.85√S from empirical phase diagram research.</heuristic>
+        <heuristic name="complexity-classification">
+          <simple>≤5 steps: minimal decomposition (DGI 1.0-1.2). Combine into 1-2 implementation steps. Skip full DAG — use flat list.</simple>
+          <moderate>6-15 steps: moderate decomposition (DGI 1.8-2.4). Use layered DAG with 2-4 parallel tracks. Max 12 subtasks per level.</moderate>
+          <complex>>15 steps: deeper decomposition (DGI 3.0-4.5). Use full DAG with parallel tracks. Enforce max 3 hierarchical levels. Watch for fragile optimal window — over-decomposition at this level causes 71% coordination overhead.</complex>
+        </heuristic>
+        <rules>
+          <rule>If a step would take >4 hours of developer effort, split it.</rule>
+          <rule>If a step can be described in <2 bullets, it's too small — merge with adjacent step unless merging creates unsafe half-built state.</rule>
+          <rule>Never exceed 12 steps in a single layer — split into sub-layers instead.</rule>
+          <rule>Enforce max 3 hierarchical levels of decomposition. Deeper nesting creates coordination overhead that dwarfs execution gains.</rule>
+          <rule>Parallel tracks are free only if their dependency sets don't overlap — overlapping dependencies reintroduce serialization.</rule>
+          <rule priority="high">Every file boundary must keep the file under ~350 lines. If implementing a step would push a file past 400 lines, split the file or restructure before writing code. Monolithic files cause agent drift, context saturation, and merge conflicts.</rule>
+        </rules>
+      </decomposition-guidance>
 
       <layer-rules>
         <rule condition="feature_mode=enhancement">
@@ -263,7 +281,13 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
       <path>{same folder as prd.md}/plan.md</path>
 
       <pre-write-check priority="critical">
-        Scan every step's file paths, symbol names, and column/field references against the Phase 2 verification ledger. Anything without a "confirmed" entry must be rewritten as [UNVERIFIED: name] or [NEW: name] before the step is written.
+        Plan.md is a HIGH-LEVEL dependency map, not a full implementation spec. Keep it compact:
+        - Step definitions: layer, type, effort, files, depends_on, unblocks only
+        - No per-step build bullets, acceptance checks, blast-radius coverage, or watch-out-for notes
+        - Those belong in prd-tasks which re-derives them from spec + live MCP research
+        - Risk register: top 3-5 only
+        - Full verification ledger lives in tasks/validation.md, not here
+        Do scan file paths and symbol names against the Phase 2 ledger. Unconfirmed entries → [UNVERIFIED] or [NEW].
       </pre-write-check>
 
       <template>
@@ -288,24 +312,10 @@ method: "{Standard|TDD}"
 
 <understanding_validation>
   <validated>true|false</validated>
-  <verification_ledger>
-    <!-- claim | tool used | result: confirmed file:line / NOT FOUND / FOUND-BUT-DIFFERENT -->
-  </verification_ledger>
   <discrepancies>
     <!-- expected | actual | impact | blocking|non-blocking | action -->
   </discrepancies>
 </understanding_validation>
-
-<blast_radius_plan>
-  <api/>
-  <database/>
-  <auth_security/>
-  <ui/>
-  <workflow_events/>
-  <integrations/>
-  <tests/>
-  <rollback/>
-</blast_radius_plan>
 
 <file_structure_map>
   <new_files>
@@ -345,16 +355,7 @@ method: "{Standard|TDD}"
       <create path="{path — confirmed available}">what this file contains</create>
       <modify path="{path — confirmed exists, file:line}">what changes and why</modify>
     </files>
-    <what_to_build>
-      <!-- 3-8 concrete bullets, using only confirmed or explicitly [NEW] names -->
-    </what_to_build>
-    <blast_radius_covered>
-      <!-- api/db/auth/ui/workflow/integration/test/rollback -->
-    </blast_radius_covered>
-    <acceptance_check>{exact command or manual check}</acceptance_check>
-    <watch_out_for>
-      <!-- codebase-specific gotchas, each traceable to a Phase 2 finding -->
-    </watch_out_for>
+    <!-- what_to_build, blast_radius_covered, acceptance_check, watch_out_for omitted — prd-tasks re-derives these from spec + MCP research -->
   </step>
 </steps>
 
@@ -371,8 +372,19 @@ method: "{Standard|TDD}"
 </parallel_opportunities>
 
 <risk_register>
-  <!-- risk | likelihood | impact | mitigation | owner -->
+  <!-- top 3-5 risks only — full risk enumeration belongs in tasks/validation.md -->
 </risk_register>
+
+<handoff max_tokens="200">
+  <feature>{feature name}</feature>
+  <method>{Standard|TDD}</method>
+  <total_steps>{N}</total_steps>
+  <critical_path>{chain}</critical_path>
+  <blast_radius_areas>comma-separated list of affected dimensions</blast_radius_areas>
+  <key_risks>top 2-3 risks from register</key_risks>
+  <verification_ledger_summary>{N confirmed, N discrepancies, N unresolved}</verification_ledger_summary>
+  <!-- Compact summary for /prd-tasks — must fit in ~200 tokens. No full step details. -->
+</handoff>
 
 <definition_of_done>
   <item>All must-have PRD stories pass.</item>
@@ -397,37 +409,11 @@ method: "{Standard|TDD}"
 
 ## Understanding Validation
 
-| Claim | Tool | Result | Status |
-|---|---|---|---|
+**Status:** {validated|blocked}
+**Discrepancies:** {N} ({N blocking, N non-blocking})
 
 | Item | Expected | Actual | Impact | Blocking? | Action |
 |---|---|---|---|---|---|
-
-## Blast Radius Plan
-
-### API
-...
-
-### Database
-...
-
-### Auth/Security
-...
-
-### UI
-...
-
-### Workflow/Events
-...
-
-### Integrations
-...
-
-### Tests
-...
-
-### Rollback
-...
 
 ## File Structure Map
 
@@ -466,29 +452,7 @@ method: "{Standard|TDD}"
 - Create: `{path}` — {what}
 - Modify: `{path}` — {what}
 
-**What to build:**
-- ...
-
-**Blast radius covered:**
-- ...
-
-**TDD test spec:**
-<!-- only for TEST steps -->
-```ts
-describe('{unit}', () => {
-  it('{behavior}', () => {
-    // given: {setup}
-    // when: {action}
-    // then: {assertion}
-  })
-})
-```
-
-**Acceptance check:**  
-`{command}`
-
-**Watch out for:**
-- ...
+<!-- what_to_build, blast_radius_covered, acceptance, watch_out_for omitted — prd-tasks derives these from spec + MCP research -->
 
 ## Critical Path
 
@@ -504,7 +468,16 @@ Step X → Step Y → Done
 ## Risk Register
 
 | Risk | Likelihood | Impact | Mitigation | Owner |
-|---|---|---|---|---|
+|---|---|---|---|---|---|
+
+## Handoff to /prd-tasks
+
+<!-- Compact summary ≤200 tokens. Next phase reads this, not the full plan. -->
+**Feature:** {name}  
+**Method:** {Standard|TDD} | **Steps:** {N} | **Critical path:** {chain}  
+**Blast radius:** {comma-separated}  
+**Key risks:** {2-3 items}  
+**Verification:** {N confirmed, N discrepancies, N unresolved}
 
 ## Definition of Done
 
