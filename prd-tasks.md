@@ -261,6 +261,14 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
 
 ---
 
+## Execution Mode
+
+**How tasks run:**
+
+- **Sequential mode (default):** Implement tasks one at a time in layer order. Each task checks dependencies first, then implements, verifies with targeted tests only, and commits. Never run full suite or lint.
+- **Parallel mode (`--parallel-layer N`):** Only tasks marked `parallel-safe:` with each other can run concurrently. Subagents implement with targeted tests only; after all subagents finish, the main agent runs full typecheck, build, and test suite. Parallel tasks must NOT modify overlapping files.
+- **How to read this list:** Tasks within the same layer that list each other in `parallel-safe:` may run concurrently. All others run in dependency order.
+
 ## Status Key
 
 - [ ] ⬜ Not started
@@ -287,7 +295,14 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
 - Mark `🔄` when in progress
 - Mark `❌ Blocked — {reason}` when blocked
 - Increment progress counter
+
+## Human Notes
+
+- **Parallel execution:** To run a layer in parallel, use: `/prd-implement --parallel-layer N`. Only tasks marked `parallel-safe:` with each other will run concurrently. If a task has `parallel-safe: none`, it must run alone.
+- **No lint:** Lint is never run by any agent. Full typecheck/build/test runs only after all parallel subagents complete.
+- **Targeted tests:** Agents only test files they create/modify. They never run the full test suite.
 ~~~
+
       </index_template>
 
       <task_template>

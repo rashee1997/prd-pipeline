@@ -59,7 +59,7 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
       <item>finding generated task files</item>
       <item>reading generated PRD artifacts</item>
       <item>git operations</item>
-      <item>tests, typecheck, lint, build</item>
+      <item>tests, typecheck, build (main agent only after all subagents complete)</item>
       <item>explicit file staging and commits</item>
     </use_bash_for>
 
@@ -259,15 +259,20 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
       </rules>
 
       <subagent_contract>
-        Use MCP before implementation. Return MCP Evidence Log. Use Bash only for git/test/typecheck/build/generated PRD artifacts. Touch only task files. Use explicit git add paths. Stop with NEEDS_CONTEXT if MCP evidence is missing.
+        Use MCP before implementation. Return MCP Evidence Log. Use Bash only for git and targeted tests. NEVER run build, lint, or full test suite — only targeted test commands for files this task touches. Use explicit git add paths. Stop with NEEDS_CONTEXT if MCP evidence is missing.
       </subagent_contract>
 
       <steps>
         <step>Dispatch each task concurrently with subagent_contract.</step>
         <step>Reject missing MCP Evidence Log.</step>
-        <step>Bash: bun test && bun tsc --noEmit</step>
-        <step condition="clean">Bash: git tag layer-{N}-complete</step>
       </steps>
+      <post-dispatch condition="all subagents returned DONE">
+        <task>Main agent runs memory-intensive validation after parallel subagents complete.</task>
+        <step>Bash with timeout 300000: bun tsc --noEmit</step>
+        <step condition="tsc clean">Bash with timeout 300000: bun run build</step>
+        <step>Bash with timeout 300000: bun test</step>
+        <step condition="all clean">Bash: git tag layer-{N}-complete</step>
+      </post-dispatch>
 
       <stop/>
     </phase>
@@ -378,11 +383,11 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
 
     <phase id="8" name="implement">
       <tdd>
-        <phase name="RED">Write tests + stubs. Imports resolve. Tests fail for intended reason.</phase>
+        <phase name="RED">Write tests + stubs for files this task creates/modifies only. Imports resolve. Run targeted test with timeout 120000: `Bash: bun test --timeout 120000 <test-file-pattern>` — test fails for intended reason. NEVER run full test suite or lint.</phase>
         <phase name="IMPL">Write only enough implementation to satisfy failing tests.</phase>
-        <phase name="GREEN">Fix failures only. Add no new scope.</phase>
-        <phase name="REFACTOR">Improve structure without behavior changes. Tests stay green.</phase>
-        <phase name="N/A">Implement task and tests together only where task shape requires it.</phase>
+        <phase name="GREEN">Fix failures only. Add no new scope. Run same targeted test with timeout 120000. NEVER run full suite or lint.</phase>
+        <phase name="REFACTOR">Improve structure without behavior changes. Tests stay green — targeted test only.</phase>
+        <phase name="N/A">Implement task and tests together only where task shape requires it. Targeted test with timeout 120000.</phase>
       </tdd>
 
       <re-anchoring>
@@ -412,8 +417,8 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
     <phase id="9" name="self-review">
       <checks>
         <check>MCP Evidence Log complete.</check>
-        <check>Bash: bun tsc --noEmit</check>
-        <check>Bash: {acceptance command from task file}</check>
+        <check>Bash with timeout 300000: bun tsc --noEmit</check>
+        <check>Bash with timeout 120000: <targeted test command for files this task created/modified> — NEVER run full test suite, build, or lint.</check>
         <check>Every instructed file created/modified.</check>
         <check>No files outside task scope touched.</check>
         <check>No any, TODO, @ts-ignore, console.log, skipped tests, disabled rules.</check>
@@ -433,7 +438,7 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
 ```bash
 git add {explicit task implementation file paths only}
 git status --short
-bun tsc --noEmit
+bun tsc --noEmit --timeout 300000
 git commit -m "{type}({scope}): {imperative summary}
 Task: {TASK-ID}
 TDD: {RED|IMPL|GREEN|REFACTOR|N/A}"
@@ -539,7 +544,10 @@ git commit -m "chore tasks: mark {TASK-ID} complete"
       <rule>Never implement before validation gate, branch setup, and MCP research.</rule>
       <rule>Never use any.</rule>
       <rule>Never invent a pattern without evidence.</rule>
-      <rule>tsc must pass before commit.</rule>
+      <rule>Never run lint — lint is forbidden for all agents.</rule>
+      <rule>tsc must pass before commit with timeout 300000.</rule>
+      <rule>RED/GREEN/self-review: targeted test only (files this task touches). NEVER run full test suite in single/parallel mode — full suite is main-agent only after all subagents complete.</rule>
+      <rule>Test commands must always include timeout 120000 minimum.</rule>
       <rule>Acceptance check must pass before marking complete.</rule>
       <rule>RED tests fail for intended reason, not import errors.</rule>
       <rule>IMPL does only what tests require.</rule>
