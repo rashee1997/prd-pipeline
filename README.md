@@ -51,6 +51,8 @@ cp prd-*.md /path/to/your/agent/commands/
 | [docs/principles.md](docs/principles.md) | Core principles (evidence-first, blast-radius, compatibility, ponytail discipline, when to use) |
 | [docs/comparison.md](docs/comparison.md) | Comparison vs GitHub Spec Kit, OpenSpec, cc-sdd, and 10+ other SDD tools |
 
+> **MCP tools:** The command files reference `mcp__serena`, `mcp__octocode`, `mcp__semble`, `mcp__context7`. If these are not installed or error, the AI automatically falls back to its own native tools for code research — the pipeline degrades gracefully.
+
 ## License
 
 MIT — see [LICENSE](./LICENSE).
