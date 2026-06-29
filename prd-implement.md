@@ -59,7 +59,8 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
       <item>finding generated task files</item>
       <item>reading generated PRD artifacts</item>
       <item>git operations</item>
-      <item>tests, typecheck, build (main agent only after all subagents complete)</item>
+      <item>targeted tests (all agents — with file/folder paths, never full suite)</item>
+      <item>typecheck, build (memory-intensive — main agent only after all parallel subagents complete)</item>
       <item>explicit file staging and commits</item>
     </use_bash_for>
 
@@ -267,10 +268,10 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
         <step>Reject missing MCP Evidence Log.</step>
       </steps>
       <post-dispatch condition="all subagents returned DONE">
-        <task>Main agent runs memory-intensive validation after parallel subagents complete.</task>
+        <task>Main agent runs memory-intensive validation after parallel subagents complete. All agents run targeted tests only — never full test suite.</task>
         <step>Bash with timeout 300000: bun tsc --noEmit</step>
         <step condition="tsc clean">Bash with timeout 300000: bun run build</step>
-        <step>Bash with timeout 300000: bun test</step>
+        <step>For each subagent's file set, run targeted test: Bash with timeout 120000: <test-command> --timeout 120000 <test-file-paths or test-folder for that task></step>
         <step condition="all clean">Bash: git tag layer-{N}-complete</step>
       </post-dispatch>
 
@@ -383,7 +384,7 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
 
     <phase id="8" name="implement">
       <tdd>
-        <phase name="RED">Write tests + stubs for files this task creates/modifies only. Imports resolve. Run targeted test with timeout 120000: `Bash: bun test --timeout 120000 <test-file-pattern>` — test fails for intended reason. NEVER run full test suite or lint.</phase>
+        <phase name="RED">Write tests + stubs for files this task creates/modifies only. Imports resolve. Run targeted test with timeout 120000: `Bash: <test-command> --timeout 120000 <test-file-paths or test-folder>` — test fails for intended reason. NEVER run full test suite or lint.</phase>
         <phase name="IMPL">Write only enough implementation to satisfy failing tests.</phase>
         <phase name="GREEN">Fix failures only. Add no new scope. Run same targeted test with timeout 120000. NEVER run full suite or lint.</phase>
         <phase name="REFACTOR">Improve structure without behavior changes. Tests stay green — targeted test only.</phase>
@@ -418,7 +419,7 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
       <checks>
         <check>MCP Evidence Log complete.</check>
         <check>Bash with timeout 300000: bun tsc --noEmit</check>
-        <check>Bash with timeout 120000: <targeted test command for files this task created/modified> — NEVER run full test suite, build, or lint.</check>
+        <check>Bash with timeout 120000: <test-command> --timeout 120000 <test-file-paths or test-folder> — NEVER run full test suite, build, or lint.</check>
         <check>Every instructed file created/modified.</check>
         <check>No files outside task scope touched.</check>
         <check>No any, TODO, @ts-ignore, console.log, skipped tests, disabled rules.</check>
@@ -546,8 +547,8 @@ git commit -m "chore tasks: mark {TASK-ID} complete"
       <rule>Never invent a pattern without evidence.</rule>
       <rule>Never run lint — lint is forbidden for all agents.</rule>
       <rule>tsc must pass before commit with timeout 300000.</rule>
-      <rule>RED/GREEN/self-review: targeted test only (files this task touches). NEVER run full test suite in single/parallel mode — full suite is main-agent only after all subagents complete.</rule>
-      <rule>Test commands must always include timeout 120000 minimum.</rule>
+      <rule>All agents (main and sub) may run test commands but ONLY targeted to test file paths or test folder paths for files they created/modified. NEVER run full test suite — full suite is main-agent only after all parallel subagents complete, and even then only as targeted tests per task set.</rule>
+      <rule>Test commands must always include timeout 120000 minimum. Do not hardcode `bun test` — use the project's test command (e.g., `npx jest`, `bun test`, `npm test`) with file/folder paths.</rule>
       <rule>Acceptance check must pass before marking complete.</rule>
       <rule>RED tests fail for intended reason, not import errors.</rule>
       <rule>IMPL does only what tests require.</rule>
