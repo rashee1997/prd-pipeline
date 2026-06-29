@@ -5,7 +5,7 @@ The spec-driven development ecosystem has grown rapidly. Here is how PRD Pipelin
 ## Feature Comparison
 
 | Feature | PRD Pipeline | GitHub Spec Kit | OpenSpec | cc-sdd | Spec-Driven Develop |
-|---|---|---|---|---|---|---|
+|---|---|---|---|---|---|
 | **Stars** | — | 115K | 55K | ~1.8K | 912 |
 | **Runtime** | None (Markdown) | Python | Node.js | Node.js | Shell |
 | **Setup time** | Copy files → run | `uvx` init (~5-10 min) | `npm install` (~2 min) | `npx` init (~2 min) | Git clone (~2 min) |
