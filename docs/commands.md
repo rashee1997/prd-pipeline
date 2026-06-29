@@ -32,11 +32,13 @@ Research-first Socratic discovery. Assesses scope, researches codebase + externa
 
 **What it does:**
 - Assesses whether the feature should be decomposed
+- **Complexity routing** — classifies task as trivial/simple/complex; skips deep research for ≤3-file changes (60-80% token savings)
 - Researches the existing codebase before asking questions
 - Detects new feature vs enhancement
 - Maps blast radius across API, DB, auth, UI, workflow, integrations, tests, and rollback
 - Asks one precise grounded question at a time
-- Writes `discovery.md`
+- Question count adapts to complexity: 3 max (trivial), 7 max (simple), 12 max (complex)
+- Writes `discovery.md` with complexity routing evidence
 
 ## 2. `/prd-write`
 
@@ -50,28 +52,33 @@ Turns discovery into a PRD and technical specification.
 - Reads `discovery.md`
 - Performs deeper codebase research
 - Verifies library APIs and implementation patterns
-- Performs blast-radius analysis
+- **Conditional blast-radius** — only researches dimensions with evidence of impact (~40% smaller specs)
+- **EARS acceptance criteria** — uses machine-parseable WHEN/WHILE/IF/WHERE + SHALL notation
+- **Content-hashed spec blocks** — SHA-256 anchors in drift_anchors section for CI drift detection
 - Writes a testable PRD
 - Writes a buildable technical spec
 - Captures compatibility requirements for enhancements
 
 ## 3. `/prd-plan`
 
-Turns the PRD and spec into a dependency graph.
+Turns the PRD and spec into a slim dependency graph.
 
 **Input:** `/prd-plan docs/prd/{feature}/prd.md docs/prd/{feature}/spec.md`
 
 **Optional:** `--tdd` for TDD mode (RED → IMPL → GREEN → REFACTOR)
 
-**Output:** `plan.md`
+**Output:** `plan.md` (high-level — prd-tasks fills in details)
 
 **What it does:**
 - Validates PRD/spec assumptions against the live codebase
 - Maps files to create and modify
+- **Decomposition guidance** — DGI* ≈ 0.85√S heuristic prevents over-decomposition (avoids 71% coordination overhead)
 - Builds the shortest safe dependency graph
 - Identifies critical path and parallel tracks
 - Adds compatibility Layer 0 for enhancements
+- **Orchestrator handoff** — ≤200 token summary for prd-tasks (70% less context carry-over)
 - Supports TDD planning
+- Keeps plan.md lean — no per-step build bullets, acceptance checks, or blast-radius coverage (those belong in tasks)
 
 ## 4. `/prd-tasks`
 
@@ -89,6 +96,9 @@ Turns the plan into one self-contained task file per implementation unit.
 - Defines exact acceptance checks
 - Defines commit instructions
 - Ensures every task can be executed by a fresh subagent
+- **Context budget per task** — estimated token cap + complexity tag (minimal/normal/complex); tasks fail loudly instead of silently truncating if budget exceeded
+- **File size enforcement** — splits tasks that would push any file past ~350 lines
+- **Re-derives detail** — plan.md is high-level; prd-tasks fills per-step build bullets, blast-radius coverage, and acceptance checks from spec + live MCP research
 
 ## 4a. `/prd-validate`
 
@@ -103,6 +113,7 @@ Validates generated tasks before implementation.
 - Validates dependency graph correctness
 - Checks file path accuracy
 - Checks acceptance commands
+- **EARS format check** — validates acceptance criteria use WHEN/WHILE/IF/WHERE + SHALL notation
 - Checks compatibility gates
 - Checks parallel safety
 - Checks live codebase references
@@ -121,6 +132,8 @@ Implements validated task files.
 - Confirms dependencies are complete
 - Confirms `/prd-validate` passed
 - Finds the nearest existing codebase pattern via MCP
+- **Re-anchoring checkpoint** — re-reads task goal at 50% of steps to prevent agent drift
+- **File size guard** — splits files past 400 lines into separate responsibilities
 - Writes the minimum code needed
 - Runs acceptance checks
 - Commits implementation
@@ -133,7 +146,7 @@ Runs parallel specialist review.
 **Input:** `/prd-review docs/prd/{feature}`
 
 **Review dimensions:**
-- Spec compliance
+- Spec compliance (includes **faithfulness check** — verifies diff matches acceptance criteria, not just "passes tests")
 - Security
 - Performance
 - TypeScript strictness

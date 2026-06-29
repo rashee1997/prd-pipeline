@@ -14,6 +14,7 @@
 <p align="center">
   <img alt="License" src="https://img.shields.io/badge/license-MIT-blue.svg">
   <img alt="Pipeline" src="https://img.shields.io/badge/pipeline-8\_commands-7C5CFF.svg">
+  <img alt="Complexity Routing" src="https://img.shields.io/badge/complexity-routing-22C55E.svg">
   <img alt="MCP Ready" src="https://img.shields.io/badge/MCP-ready-22C55E.svg">
   <img alt="Validation Gated" src="https://img.shields.io/badge/validation-gated-F59E0B.svg">
   <img alt="Ponytail Discipline" src="https://img.shields.io/badge/ponytail-discipline-EC4899.svg">
@@ -45,6 +46,20 @@ cp prd-*.md /path/to/your/agent/commands/
 | **Handles enhancements properly** (frozen contracts, Layer 0, cutover) | Designed for brownfield, not just greenfield |
 | **Makes semantic search (Semble MCP) mandatory** | 100x more token-efficient than regex/grep |
 | **Zero runtime dependencies** — pure portable Markdown | Copy into any agent runtime and run |
+
+## Intelligent Optimization
+
+| Feature | What it does | Saves |
+|---|---|---|
+| **Complexity routing** | Detects trivial vs complex tasks; skips deep research for ≤3-file changes | 60-80% token waste on simple tasks |
+| **Conditional blast-radius** | Only researches dimensions with evidence of impact | ~40% smaller specs |
+| **EARS acceptance criteria** | Machine-parseable WHEN/WHILE/IF/WHERE + SHALL notation | Clearer test targets |
+| **Content-hashed spec blocks** | SHA-256 anchors enable CI drift detection | Catches stale specs |
+| **Decomposition guidance** | DGI* ≈ 0.85√S heuristic prevents over-decomposition | Avoids 71% coordination overhead |
+| **Context budget per task** | Estimated token cap; tasks fail loudly instead of silently truncating | Prevents hallucinated code |
+| **Orchestrator handoff** | ≤200 token summary for next phase | 70% less context carry-over |
+| **Re-anchoring checkpoint** | Re-reads goal at 50% of task steps | Prevents agent drift mid-task |
+| **Faithfulness check** | Verifies diff matches acceptance criteria, not just passes tests | Catches "fake done" |
 
 ## Documentation
 

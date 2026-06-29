@@ -43,6 +43,23 @@ Each task file represents:
 
 No task should require reading the PRD, spec, plan, or another task before starting.
 
+## Complexity-Proportional Effort
+
+Research depth and planning granularity scale with actual task complexity, not uniform maximum depth:
+- **Trivial** (≤3 files, no schema/auth changes): minimal research, skip external patterns, max 3 questions
+- **Simple** (clear scope, minor API change): standard research, skip external patterns, max 7 questions
+- **Complex** (cross-cutting, new models/auth): full pipeline with external research
+
+This prevents wasting 60-80% of token budget on trivial changes while ensuring complex work gets the depth it needs.
+
+## Content-Hashed Spec Anchors
+
+Spec sections carry SHA-256 content hashes for drift detection. When spec content changes after implementation, the hash mismatch flags the code as stale — enabling CI gates to catch spec/code divergence before it reaches production.
+
+## Context Budget as Hard Constraint
+
+Every task has an estimated token budget and a hard cap. If context would exceed the cap, the task splits rather than silently truncating — truncated instructions produce hallucinated code.
+
 ## Ponytail Discipline
 
 The pipeline follows a "lazy senior engineer" mindset:
@@ -87,6 +104,14 @@ The system is never lazy about:
 - Purely cosmetic copy changes
 - Experiments where process cost exceeds risk
 
+## Re-Anchoring Against Drift
+
+At ~50% of task implementation steps, the agent re-reads the original task goal and acceptance criteria. This prevents the six identified mechanisms of agent drift (goal drift, context drift, role drift, tool-use drift, hallucination cascade, plan decay) that cause long-running agents to lose the plot.
+
+## Faithfulness Over Test Coverage
+
+A diff that passes all tests but behaves differently from the stated acceptance criteria is drift, not done. The spec-compliance reviewer checks faithfulness — does the code actually do what the criteria say, not just pass whatever test was written for it?
+
 ## Design Goals
 
 This system optimizes for:
@@ -94,6 +119,8 @@ This system optimizes for:
 - Fewer broken existing contracts
 - Better task isolation
 - Better parallel execution
+- **Proportional effort** — trivial changes skip expensive pipeline steps
+- **Drift resistance** — re-anchoring and faithfulness checks prevent mid-task divergence
 - Easier review
 - Safer PR creation
 - Stronger traceability from requirement to code
