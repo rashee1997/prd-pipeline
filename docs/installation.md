@@ -114,31 +114,24 @@ prd-pr.md
 prd-release.md
 ```
 
-## Required MCP / Research Tools
+## Tool Dependencies
 
-### 1. Codebase symbol/navigation tool (e.g. `mcp__serena`)
+The command files reference specific MCP tool families (`mcp__serena`, `mcp__octocode`, `mcp__semble`, `mcp__context7`). These are **optional** — if a tool is unavailable in your environment, the agent must use its own equivalent built-in capabilities (native file search, symbol lookup, code reading, web search, etc.).
 
-Used for: finding symbols, reading signatures, tracing callers, understanding architecture.
+| Tool family | Purpose | Fallback if unavailable |
+|---|---|---|
+| `mcp__serena` | Symbol/navigation — find symbols, read signatures, trace callers | Agent's native symbol lookup or code-reading tools |
+| `mcp__octocode` | Code search + file reading — search local code, read files, GitHub research | Agent's native `grep`/`read`/`search` capabilities |
+| `mcp__semble` (recommended) | Semantic code search — find code by concept/natural language. 100x more token-efficient than regex/grep | Agent's native file search + grep; less efficient but functional |
+| `mcp__context7` | Library documentation — verify API signatures, version-specific behavior | Agent's web search or training knowledge |
+| Bash / Shell | Creating folders, writing files, running type checks/tests/builds, Git operations, GitHub CLI | — |
 
-### 2. Code search and file reading tool (e.g. `mcp__octocode`)
+**Important:** If a referenced MCP tool is not installed, the agent should not fail — it must use its own native capabilities instead. The pipeline is designed to degrade gracefully. The `allowed-tools` frontmatter in each command file lists the preferred tools, but agents with different tool names can adapt.
 
-Used for: searching local code, reading file contents, researching GitHub implementations.
+### Recommended (for best experience)
 
-### 3. Semantic code search tool (e.g. `mcp__semble`) — **Mandatory**
-
-Used for: finding conceptually related code, discovering behavior with different names, finding adjacent modules. 100x more token-efficient than regex/grep.
-
-### 4. Library documentation tool (e.g. `mcp__context7`)
-
-Used for: verifying library APIs, checking exact method signatures, validating version-specific behavior.
-
-### 5. Shell / Bash access
-
-Used for: creating folders, writing files, running type checks/tests/builds, Git operations, GitHub CLI.
-
-## Optional Tools
-
-- GitHub CLI (`gh`) for `/prd-pr`
-- GitHub authentication for remote repository research
-- Language server support for stronger semantic navigation
-- Test runner support for scoped task acceptance checks
+- **mcp__semble** — semantic code search. Reduces token consumption ~100x vs regex/grep for code discovery. Install: `claude mcp add semble -s user -- uvx --from "semble[mcp]" semble`
+- **GitHub CLI (`gh`)** — required for `/prd-pr` and `/prd-release` GitHub Release creation
+- **GitHub authentication** — for remote repository research via OctoCode
+- **Language server** — for stronger semantic navigation
+- **Test runner** — for scoped task acceptance checks
