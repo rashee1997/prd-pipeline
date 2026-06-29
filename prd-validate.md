@@ -305,7 +305,7 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
       <checks>
         <check>Each task has one primary acceptance command unless multiple are explicitly justified.</check>
         <check>Commands use known project tooling or scripts.</check>
-        <check>TypeScript check exists where source code changes.</check>
+        <check>A type or compile check exists where source code changes, using the project's detected toolchain (e.g. tsc, mypy, cargo check, go build, javac).</check>
         <check>Test command is scoped enough to prove task behavior.</check>
         <check>Compat-sensitive tasks include frozen contract regression command.</check>
         <check>Manual checks are allowed only for UI/manual verification tasks and must be specific.</check>
@@ -318,8 +318,8 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
       </blocking-if>
 
        <allowed-command-examples>
-         <example>Command example based on the project's detected typecheck, test, or build commands from discovery.md</example>
-         <example>Builting from the project's package.json scripts or language-specific tooling</example>
+         <example>Command based on the project's detected compile, lint, or static-analysis tool from discovery.md (e.g. tsc --noEmit, cargo check, go vet, mypy, pylint)</example>
+         <example>Built from the project's build manifest (package.json, Makefile, pyproject.toml, Cargo.toml, build.gradle, etc.) or language-specific tooling</example>
          <example>grep -r "{name}" src/ - specific symbol/field verification</example>
       </allowed-command-examples>
     </phase>

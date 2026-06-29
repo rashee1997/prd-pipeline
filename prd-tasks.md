@@ -288,7 +288,7 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
 ## Completion Checklist
 
 - [ ] `/prd-validate ./index.md` passes
-- [ ] `{typecheck command from discovery.md}` — zero errors
+- [ ] `{compile/static-analysis/typecheck command from discovery.md}` — zero errors
 - [ ] `{test command from discovery.md}` — full suite green
 - [ ] `{build command from discovery.md}` — production build passes
 - [ ] {feature-specific check}
@@ -357,9 +357,9 @@ Exact signatures:
   <item name="modified_files_read" condition="modifies existing files">Read every existing file this task modifies.</item>
   <item name="symbols_verified" condition="uses referenced symbols/types/functions">Verify exact symbol/type/function location and signature.</item>
   <item name="auth_validation_error_pattern" condition="api|auth|server action|public route">Verify auth, permission, validation, response, and error patterns.</item>
-  <item name="database_pattern" condition="database|seed|prisma|migration">Verify Prisma/database/seed patterns.</item>
-  <item name="test_pattern" condition="test|RED|GREEN|jest|vitest">Verify existing test style, mocks, helpers, and assertions.</item>
-  <item name="ui_pattern" condition="UI_TASK|component|React|tsx">Verify component, toast, loading, disabled, and design-token patterns.</item>
+  <item name="database_pattern" condition="database|seed|orm|migration">Verify database/ORM/seed patterns.</item>
+  <item name="test_pattern" condition="test|RED|GREEN|spec">Verify existing test style, mocks, helpers, and assertions.</item>
+  <item name="ui_pattern" condition="UI_TASK|component|view|template">Verify component, notification/feedback, loading, disabled, and design-token patterns.</item>
   <item name="library_docs" condition="external API not proven locally">Verify exact library API with docs.</item>
 </required_evidence>
 
@@ -427,7 +427,7 @@ Files to delete:
 
 <constraints>
 - Touch only listed files
-- Zero `any`, zero `@ts-ignore`, explicit exports
+- No unsafe/untyped constructs (e.g. TypeScript any/@ts-ignore, Python untyped Any, etc.), explicit exports
 - Follow the reference pattern exactly
 - Do not change files outside this task
 - Do not implement before MCP Evidence Log is complete
@@ -442,7 +442,7 @@ Done when:
 - [ ] MCP Evidence Log is complete
 - [ ] {specific condition}
 - [ ] {specific condition}
-- [ ] `{typecheck command from discovery.md}` — zero errors
+- [ ] `{compile/static-analysis/typecheck command from discovery.md}` — zero errors
 </acceptance>
 
 <commit>

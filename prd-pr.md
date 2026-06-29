@@ -1,5 +1,5 @@
 ---
-description: "PRD Step 7/7 — Creates PR after tasks, validation, implementation, review, typecheck, and tests are complete."
+description: "PRD Step 7/7 — Creates PR after tasks, validation, implementation, review, compile/type checks, and tests are complete."
 argument-hint: "<target branch optional — defaults to repo default/main>"
 allowed-tools: Bash, mcp__semble__search, mcp__semble__find_related
 ---
@@ -21,7 +21,7 @@ allowed-tools: Bash, mcp__semble__search, mcp__semble__find_related
       <item>Never open PR from main/master.</item>
       <item>Never open PR with incomplete tasks.</item>
       <item>Never open PR without clean /prd-review after latest implementation commit.</item>
-      <item>Never open PR with TypeScript errors or failing tests.</item>
+      <item>Never open PR with type/compile errors or failing tests.</item>
       <item>PR description must explain what, why, how, verification, and risks.</item>
       <item>Breaking Changes section is mandatory; "None" is valid.</item>
     </rules>
@@ -146,13 +146,13 @@ cat {prd-folder}/tasks/validation.md
       </step>
 
       <step name="final-verification">
-        <task>Read a completed task file to get the typecheck and test commands baked into its acceptance criteria. Run those commands to verify everything still passes before creating the PR.</task>
+        <task>Read a completed task file to get the compile/type-check and test commands baked into its acceptance criteria. Run those commands to verify everything still passes before creating the PR.</task>
 ```bash
-{typecheck command from a completed task file's acceptance criteria} 2>&1 | head -30
+{compile/type-check command from a completed task file's acceptance criteria} 2>&1 | head -30
 {test command from a completed task file's acceptance criteria} 2>&1 | tail -20
 ```
 
-        <if condition="typecheck or tests fail">
+        <if condition="compile/type-check or tests fail">
           <output>
             ⛔ Final verification failed.
 
@@ -381,7 +381,7 @@ How to verify:
 
 ```bash
 {test command from a completed task file's acceptance criteria}
-{typecheck command from a completed task file's acceptance criteria}
+{compile/type-check command from a completed task file's acceptance criteria}
 ```
 
 ---
@@ -418,10 +418,10 @@ How to verify:
 
 - [x] `/prd-validate` passed
 - [x] `/prd-review` passed with zero blocking findings
-- [x] Typecheck passes — zero errors
+- [x] Compile/type check passes — zero errors
 - [x] All tests pass
 - [x] All tasks marked complete in `tasks/index.md`
-- [x] No `any`, no `@ts-ignore`, no TODO comments
+- [x] No unsafe type suppressions or unresolved TODO comments
 - [x] Inputs validated where needed
 - [x] Auth checked before logic on protected routes
 - [x] Breaking changes documented above or confirmed none
@@ -462,8 +462,8 @@ Tasks:  {N}/{N} complete
 Verified:
 - `/prd-validate` passed
 - `/prd-review` clean
-- `bun tsc --noEmit` passed
-- `bun test` passed
+- `{compile/type-check command}` passed
+- `{test command}` passed
 
 Next steps:
 - Assign reviewers: `gh pr edit {number} --add-reviewer {username}`
@@ -486,7 +486,7 @@ Next steps:
       <rule>Never open PR unless /prd-review is clean after latest implementation commit.</rule>
       <rule>CRITICAL and HIGH review findings must be fixed.</rule>
       <rule>MEDIUM and LOW findings may be deferred only with explicit user acceptance.</rule>
-      <rule>Never open PR with TypeScript errors.</rule>
+      <rule>Never open PR with type or compile errors.</rule>
       <rule>Never open PR with failing tests.</rule>
       <rule>Never push directly to target branch.</rule>
       <rule>PR title must be ≤ 72 characters and imperative.</rule>
