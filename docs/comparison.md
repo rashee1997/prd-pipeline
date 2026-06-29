@@ -5,13 +5,23 @@ The spec-driven development ecosystem has grown rapidly. Here is how PRD Pipelin
 ## Feature Comparison
 
 | Feature | PRD Pipeline | GitHub Spec Kit | OpenSpec | cc-sdd | Spec-Driven Develop |
-|---|---|---|---|---|---|
+|---|---|---|---|---|---|---|
 | **Stars** | — | 115K | 55K | ~1.8K | 912 |
 | **Runtime** | None (Markdown) | Python | Node.js | Node.js | Shell |
 | **Setup time** | Copy files → run | `uvx` init (~5-10 min) | `npm install` (~2 min) | `npx` init (~2 min) | Git clone (~2 min) |
 | **Brownfield focus** | ✅ Primary design | 🟡 Generic | 🟡 Generic | 🟡 Generic | 🟡 Generic |
 | **Evidence-first** (verify names against live code) | ✅ **Unique** — every name must trace to a tool result | ❌ Assumes spec text is correct | ❌ Assumes spec text is correct | ❌ Assumes spec text is correct | ❌ Assumes spec text is correct |
 | **Blast-radius mandatory** | ✅ **Unique** — required before any spec writing | ❌ Not enforced | ❌ Not enforced | ❌ Not enforced | ❌ Not enforced |
+| **Complexity routing** (skip deep phases for trivial tasks) | ✅ Proportional — trivial/simple/complex phases | ❌ Uniform depth | ❌ Uniform depth | ❌ Uniform depth | ❌ Uniform depth |
+| **Conditional blast-radius** (skip irrelevant dimensions) | ✅ **Unique** — zero-evidence dimensions skipped | ❌ Always full template | ❌ Always full template | ❌ Always full template | ❌ Always full template |
+| **EARS acceptance criteria** | ✅ Mandated in template + rules | 🟡 Recommended | ❌ Prose | ❌ Prose | 🟡 Recommended |
+| **Content-hashed spec blocks** (drift detection) | ✅ SHA-256 anchors in drift_anchors section | ❌ No drift detection | ❌ No drift detection | ❌ No drift detection | ❌ No drift detection |
+| **Decomposition granularity guidance** | ✅ DGI* ≈ 0.85√S heuristic | ❌ Static decomposition | ❌ Static decomposition | ❌ Static decomposition | ❌ Static decomposition |
+| **Orchestrator handoff** (compact ≤200t summary) | ✅ **Unique** — standardized handoff block | ❌ Files passed by reference | ❌ Files passed by reference | ❌ Files passed by reference | ❌ Files passed by reference |
+| **Context budget per task** | ✅ Estimated tokens + hard cap; fails loudly | ❌ No budget | ❌ No budget | ❌ No budget | ❌ No budget |
+| **Re-anchoring checkpoint** (anti-drift at 50%) | ✅ Goal re-read at midpoint | ❌ No drift prevention | ❌ No drift prevention | ❌ No drift prevention | ❌ No drift prevention |
+| **Faithfulness check** (diff matches intent, not just tests) | ✅ Spec-compliance reviewer checks faithfulness | ❌ No intent verification | ❌ No intent verification | ❌ No intent verification | ❌ No intent verification |
+| **File size enforcement** (split past ~350 lines) | ✅ Hard rule in plan/tasks/implement | ❌ No file limits | ❌ No file limits | ❌ No file limits | ❌ No file limits |
 | **Validation gate** (before implementation) | ✅ `/prd-validate` blocks if tasks not ready | ❌ No validation gate | ❌ No validation gate | ❌ No validation gate | ❌ No validation gate |
 | **Task isolation** (fresh subagent ready) | ✅ **Unique** — every task is self-contained, 300-600 words | 🟡 Tasks reference spec/plan | 🟡 Tasks reference parent docs | 🟡 Tasks reference parent docs | 🟡 Tasks reference parent docs |
 | **Enhancement/compat mode** | ✅ **Unique** — frozen contracts, Layer 0, cutover | ❌ No enhancement mode | ❌ No enhancement mode | ❌ No enhancement mode | ❌ No enhancement mode |
