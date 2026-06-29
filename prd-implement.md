@@ -281,6 +281,7 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
         <step condition="task already [x]">Output "TASK already complete." and stop.</step>
         <step>Read linked plan section for this task only.</step>
         <step>Confirm dependencies in index.md are [x] ✅.</step>
+        <step condition="all dependencies [x]">For each dependency, read its task file and verify every file listed under "Files to create:" or "Files to modify:" actually exists in the workspace at the expected path. Use `Bash: Test-Path` or `Bash: ls` to confirm each file is present. If a file was supposed to be created but doesn't exist, or a file to modify is missing, the dependency is not truly complete — the index.md status is unreliable.</step>
       </steps>
 
       <if condition="dependency incomplete">
@@ -289,6 +290,17 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
 
           Run:
           /prd-implement {tasks_folder}/{dependency-task}.md
+        </output>
+        <stop/>
+      </if>
+
+      <if condition="dependency files missing">
+        <output>
+          ⛔ Cannot implement {TASK-ID} — dependency {dep ID} is marked [x] in index.md but its expected output files are missing:
+
+          {file paths, one per line}
+
+          The index.md status is unreliable. Investigate whether the dependency implementation was reverted or never completed. Re-run the dependency task if needed.
         </output>
         <stop/>
       </if>
