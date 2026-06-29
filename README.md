@@ -8,6 +8,10 @@
 </p>
 
 <p align="center">
+  ⚠️ <strong>AI can make mistakes.</strong> All generated artifacts require human review. Use as an accelerator, not a replacement for careful verification.
+</p>
+
+<p align="center">
   <img alt="License" src="https://img.shields.io/badge/license-MIT-blue.svg">
   <img alt="Pipeline" src="https://img.shields.io/badge/pipeline-8\_commands-7C5CFF.svg">
   <img alt="MCP Ready" src="https://img.shields.io/badge/MCP-ready-22C55E.svg">
@@ -52,8 +56,6 @@ cp prd-*.md /path/to/your/agent/commands/
 | [docs/comparison.md](docs/comparison.md) | Comparison vs GitHub Spec Kit, OpenSpec, cc-sdd, and 10+ other SDD tools |
 
 > **MCP tools:** The command files reference `mcp__serena`, `mcp__octocode`, `mcp__semble`, `mcp__context7`. If these are not installed or error, the AI automatically falls back to its own native tools for code research — the pipeline degrades gracefully.
->
-> **⚠️ AI can make mistakes.** All generated artifacts require human review. Use the pipeline as an accelerator, not a replacement for careful human verification.
 
 ## License
 
