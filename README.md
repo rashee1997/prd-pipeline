@@ -75,6 +75,18 @@ This pipeline solves that by forcing a disciplined sequence:
 The goal is not more process.  
 The goal is fewer wrong turns.
 
+## Key Differentiators
+
+| What makes PRD Pipeline different | Why it matters |
+|---|---|
+| **Evidence-first code verification** — every name in every artifact must trace back to a tool result against the live codebase | Eliminates hallucinated symbols, wrong field names, and "looks about right" implementation errors that plague AI-generated code on brownfield projects |
+| **Mandatory blast-radius mapping** before writing PRD/spec | Prevents the #1 failure mode: shipping code that breaks existing contracts silently |
+| **Validation gate** (`/prd-validate`) blocks implementation until tasks pass | Catches incomplete, circular, or unsafe task decomposition before any code is written |
+| **Enhancement compatibility mode** with frozen contracts + cutover tasks | The only SDD tool designed for brownfield — not just greenfield from scratch |
+| **Semble MCP integration** — semantic search is mandatory, not optional | 100x more token-efficient than regex/grep for code discovery; your agent spends tokens on implementation, not searching |
+| **Ponytail discipline** built into every command | Reuse over invent, minimum safe code, no over-engineering |
+| **Zero runtime dependencies** — pure portable Markdown files | No npm install, no Python venv, no version conflicts. Copy into any agent runtime and run. |
+
 
 
 ## Pipeline
@@ -929,12 +941,63 @@ It is intentionally more rigorous than a lightweight prompt-to-code workflow.
 
 
 
-## Related Projects
+## Comparison to Other SDD Tools
 
-* [Ponytail](https://github.com/DietrichGebert/ponytail) — lazy senior developer rules for AI coding agents.
+The spec-driven development ecosystem has grown rapidly. Here is how PRD Pipeline compares to the most popular alternatives.
+
+### Feature Comparison
+
+| Feature | PRD Pipeline | GitHub Spec Kit | OpenSpec | cc-sdd | Spec-Driven Develop |
+|---|---|---|---|---|---|
+| **Stars** | — | 115K | 55K | ~1.8K | 912 |
+| **Runtime** | None (Markdown) | Python | Node.js | Node.js | Shell |
+| **Setup time** | Copy files → run | `uvx` init (~5-10 min) | `npm install` (~2 min) | `npx` init (~2 min) | Git clone (~2 min) |
+| **Brownfield focus** | ✅ Primary design | 🟡 Generic | 🟡 Generic | 🟡 Generic | 🟡 Generic |
+| **Evidence-first** (verify names against live code) | ✅ **Unique** — every name must trace to a tool result | ❌ Assumes spec text is correct | ❌ Assumes spec text is correct | ❌ Assumes spec text is correct | ❌ Assumes spec text is correct |
+| **Blast-radius mandatory** | ✅ **Unique** — required before any spec writing | ❌ Not enforced | ❌ Not enforced | ❌ Not enforced | ❌ Not enforced |
+| **Validation gate** (before implementation) | ✅ `/prd-validate` blocks if tasks not ready | ❌ No validation gate | ❌ No validation gate | ❌ No validation gate | ❌ No validation gate |
+| **Task isolation** (fresh subagent ready) | ✅ **Unique** — every task is self-contained, 300-600 words | 🟡 Tasks reference spec/plan | 🟡 Tasks reference parent docs | 🟡 Tasks reference parent docs | 🟡 Tasks reference parent docs |
+| **Enhancement/compat mode** | ✅ **Unique** — frozen contracts, Layer 0, cutover | ❌ No enhancement mode | ❌ No enhancement mode | ❌ No enhancement mode | ❌ No enhancement mode |
+| **Ponytail discipline** | ✅ Built into every command | ❌ | ❌ | ❌ | ❌ |
+| **Semantic search (Semble) integration** | ✅ **Unique** — mandatory, token-efficient MCP | ❌ Regex/grep based | ❌ Regex/grep based | ❌ Regex/grep based | ❌ Regex/grep based |
+| **TDD mode** | ✅ `--tdd` flag in planning | 🟡 Via extensions | ❌ | ❌ | ❌ |
+| **Parallel layer execution** | ✅ `--parallel-layer N` | ❌ | ❌ | 🟡 | ✅ Worktrees |
+| **Multi-agent support** | OpenCode, Claude Code, Codex CLI, Gemini CLI, Antigravity, generic | 30+ agents | 20+ agents | 8 agents | 8+ agents |
+| **Review phase** | ✅ 6 specialist reviewers (security, perf, TS, quality, tests, spec) | ❌ No built-in review | ❌ No built-in review | ❌ No built-in review | ❌ No built-in review |
+| **PR creation** | ✅ Auto-generates PR from artifacts | ✅ | ❌ | ❌ | ✅ |
+| **Release management** | ✅ `/prd-release` with changelog + version + GitHub Release | ❌ | ❌ | ❌ | ❌ |
+| **License** | MIT | MIT | MIT | MIT | MIT |
+
+### When to Choose PRD Pipeline
+
+**Choose PRD Pipeline if you work on brownfield codebases** where hallucinated names, broken contracts, and missing blast-radius analysis cause real damage. It is the only SDD tool that:
+
+1. **Verifies every name against live code** before writing a single requirement — no "close enough" symbols, no plausible-looking field names
+2. **Maps blast radius before specification** — forces you to know what API routes, DB tables, auth boundaries, UI surfaces, workflows, and tests are affected before writing PRD/spec
+3. **Gates implementation behind validation** — tasks must pass `/prd-validate` before any code is written
+4. **Handles enhancements properly** — frozen contracts, compatibility Layer 0, regression-first, cutover tasks
+5. **Uses semantic search (Semble MCP) for token efficiency** — 100x less token waste finding code than regex/grep-based tools
+
+**Choose another tool if:**
+- You want an installer/CLI (`npm install`) rather than copying Markdown files
+- You need 30+ agent integrations out of the box
+- You work primarily on greenfield projects with no existing codebase to research
+- You prefer lighter process and are willing to trade safety for speed
+
+### Related Projects
+
+* [Ponytail](https://github.com/DietrichGebert/ponytail) — lazy senior developer rules for AI coding agents (inspiration for this pipeline's philosophy).
 * [Superpowers](https://github.com/obra/superpowers) — agentic skills framework and software-development methodology.
-* [GitHub Spec Kit](https://github.com/github/spec-kit) — toolkit for spec-driven development.
-* [OpenSpec](https://github.com/Fission-AI/OpenSpec) — lightweight spec-driven development framework for AI coding assistants.
+* [GitHub Spec Kit](https://github.com/github/spec-kit) — the most popular SDD toolkit, Python-based, 115K stars.
+* [OpenSpec](https://github.com/Fission-AI/OpenSpec) — lightweight SDD framework, npm-based, 55K stars.
+* [cc-sdd](https://github.com/gotalab/claude-code-spec) — Claude Code SDD plugin with parallel execution.
+* [Spec-Driven Develop](https://github.com/zhu1090093659/spec_driven_develop) — architecture-first SDD with GitHub Issues integration.
+* [SpecD](https://github.com/specd-sdd/SpecD) — code-graph RAG powered SDD framework.
+* [SpecDD](https://github.com/specdd/specdd) — agent-agnostic `.sdd` file framework.
+* [Doctrina](https://github.com/GCarin1/Doctrina) — AGENTS.md-native SDD with CLI.
+* [SpecAnchor](https://github.com/linziyanleo/spec-anchor) — three-tier spec system with context construction.
+* [Specforce Kit](https://github.com/jeancodogno/specforce-kit) — Go-based SDD orchestration layer.
+* [SpecLoom](https://github.com/ruchit07/specloom) — token-budgeted context bundles for deterministic spec resolution.
 
 
 
