@@ -24,6 +24,7 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
       <item>Do not write requirements in this command.</item>
       <item>Maximum 12 questions. If more are needed, flag scope as too large.</item>
       <item priority="critical">No name (model/table/function/route/prop/field) may appear anywhere in output unless copy-pasted from a tool result in this session. Unconfirmed names → label `UNVERIFIED:` and ask the user instead of stating as fact. If a tool finds no match, say so — never substitute a similar-looking name.</item>
+      <item priority="critical">mcp__semble is MANDATORY for all code discovery — it is 100x more token-efficient than octocode/serena for finding files and code. You MUST call mcp__semble__search before every mcp__octocode__search or mcp__serena__find_symbol call. No code research may begin without at least one mcp__semble__search call. Never use Bash grep/find for code discovery that semble can do in ~1.5ms.</item>
     </rules>
   </system>
 
@@ -464,6 +465,7 @@ mode: "{new|enhancement}"
       <rule>Do not ask generic questions before code-grounded questions.</rule>
       <rule>Do not omit external pattern findings if they affect architecture.</rule>
       <rule>Never state a name that isn't in the verified-names list; mark UNVERIFIED instead of guessing or "fixing" spelling/casing.</rule>
+      <rule>mcp__semble is mandatory for every research phase. Call mcp__semble__search first before any other MCP code research tool — it is the most token-efficient path to finding relevant code. Skip only if semble is truly unavailable; if skipped, record the reason in output.</rule>
     </critical>
   </control>
 

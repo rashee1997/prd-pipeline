@@ -29,6 +29,7 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
       <item>Never use git add . or git add -A.</item>
       <item>Release commit must stage explicit files only.</item>
       <item>Tag must match version: v{version}.</item>
+      <item priority="critical">mcp__semble is MANDATORY for all release-related code research — it is 100x more token-efficient than octocode/serena for finding files and code. Call mcp__semble__search before every mcp__octocode__search or mcp__serena__find_symbol in research phases.</item>
     </rules>
   </system>
 
@@ -182,6 +183,8 @@ git log --oneline --decorate -50
       </detect>
 
       <mcp-research>
+        <step tool="mcp__semble__search" required="true">Find all release-related files, version references, changelog locations, and release scripts using natural-language queries — most token-efficient path.</step>
+        <step tool="mcp__semble__find_related" required="true">Find semantically adjacent release patterns (version badges, CI config, release workflows).</step>
         <step tool="mcp__octocode__get_file">
           Read existing README.md, CHANGELOG.md, RELEASE_NOTES.md, and package.json if they exist.
         </step>
@@ -642,6 +645,7 @@ Next:
       <rule>Do not run gh release create before pushing tag.</rule>
       <rule>Use --notes-file for curated release notes.</rule>
       <rule>Use --fail-on-no-commits to avoid duplicate releases when applicable.</rule>
+      <rule>mcp__semble is mandatory for all release code research — call mcp__semble__search before mcp__octocode__search or mcp__serena__find_symbol. Most token-efficient path.</rule>
     </release_rules>
   </control>
 

@@ -29,6 +29,7 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
       <item>Every acceptance check must be concrete and runnable.</item>
       <item>Every file path must be real, proposed-new, or explicitly justified.</item>
       <item>Blocking issue count controls final status and readiness.</item>
+      <item priority="critical">mcp__semble is MANDATORY for all validation codebase research — it is 100x more token-efficient than octocode/serena for finding files and code. Call mcp__semble__search before every mcp__octocode__search or mcp__serena__find_symbol.</item>
     </rules>
   </system>
 
@@ -274,10 +275,9 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
         </step>
       </pattern-validation>
 
-      <semantic-validation optional="true">
-        <step tool="mcp__semble__find_related">
-          Use only if task references conceptual behavior with uncertain naming.
-        </step>
+      <semantic-validation>
+        <step tool="mcp__semble__search" required="true">Find conceptually related code and validate task references against live codebase using natural-language queries — most token-efficient path.</step>
+        <step tool="mcp__semble__find_related" required="true">Find semantically adjacent code for validation cross-checking.</step>
       </semantic-validation>
 
       <library-validation optional="true">
@@ -595,6 +595,7 @@ spec_file: "{path/to/spec.md}"
       <rule>Do not accept MODIFY for a missing file unless the task also creates it.</rule>
       <rule>Do not accept parallel-safe claims when file sets overlap.</rule>
       <rule>Enhancement: do not allow implementation without compatibility gate.</rule>
+      <rule>mcp__semble is mandatory for all validation codebase research — call mcp__semble__search before mcp__octocode__search or mcp__serena__find_symbol. Most token-efficient path.</rule>
     </hard_rules>
   </control>
 

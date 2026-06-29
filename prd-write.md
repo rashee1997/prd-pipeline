@@ -24,6 +24,7 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
       <item>If evidence is missing, research more. If still missing, mark [UNVERIFIED] instead of assuming.</item>
       <item>Enhancements require compatibility-first planning.</item>
       <item priority="critical">No file path/symbol/route/prop/schema field may appear in prd.md or spec.md unless that exact string came from a tool result this session (Serena/Octocode/Semble/Context7/grep) and has a matching evidence_index entry with tool+file:line. No entry → [UNVERIFIED] in unverified_items, never a guess or "corrected" spelling.</item>
+      <item priority="critical">mcp__semble is MANDATORY for all blast-radius research — it is 100x more token-efficient than octocode/serena for finding files and code. You MUST call mcp__semble__search before every mcp__octocode__search or mcp__serena__find_symbol call. No research phase may begin without at least one mcp__semble__search call.</item>
     </rules>
   </system>
 
@@ -132,13 +133,10 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
         </dimension>
       </blast-radius-dimensions>
 
-      <semantic-research>
-        <step tool="mcp__semble__search">
-          Search conceptual equivalents that may be named differently.
-        </step>
-        <step tool="mcp__semble__find_related">
-          Find adjacent implementations and hidden dependencies.
-        </step>
+      <semantic-research required="true">
+        <principle>mcp__semble is the PRIMARY research tool — run it FIRST before any dimension-specific search. It is 100x more token-efficient.</principle>
+        <step tool="mcp__semble__search" required="true">Search conceptual equivalents, find files by feature/behavior/domain using natural-language queries — always run before mcp__octocode__search. Use 3-5 diverse queries per dimension.</step>
+        <step tool="mcp__semble__find_related" required="true">For each relevant result, find adjacent implementations, hidden dependencies, and semantically similar code.</step>
       </semantic-research>
 
       <external-research>
@@ -718,6 +716,7 @@ For each utility:
       <rule>For enhancements, frozen contracts must appear before implementation order.</rule>
       <rule>Never fabricate a file:line citation — a made-up citation is worse than none.</rule>
       <rule>Any name in prd.md/spec.md body text must resolve to an evidence entry; unresolved names become [UNVERIFIED], never silently "cleaned up" into a guessed real name.</rule>
+      <rule>mcp__semble is mandatory for all blast-radius research. Call mcp__semble__search before every mcp__octocode__search or mcp__serena__find_symbol. Most token-efficient path.</rule>
     </critical>
   </control>
 

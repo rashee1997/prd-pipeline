@@ -25,6 +25,7 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
       <item>Never switch/create branches with uncommitted changes.</item>
       <item>Never use any, @ts-ignore, TODO, skipped tests, console.log, git add ., or git add -A.</item>
       <item>Reuse nearest existing pattern before inventing a new one.</item>
+      <item priority="critical">mcp__semble is MANDATORY for all implementation research — it is 100x more token-efficient than octocode/serena for finding files and code. You MUST call mcp__semble__search before every mcp__octocode__search or mcp__serena__find_symbol. No implementation research may start without at least one mcp__semble__search call. Never use Bash grep/find for code discovery.</item>
       <item>Security, auth, validation, data-loss paths, and acceptance checks are mandatory.</item>
       <item>Update tasks/index.md after every completed task.</item>
     </rules>
@@ -227,6 +228,7 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
 
       <evidence_log_template>
         MCP Evidence Log:
+        - Semantic discovery (semble): {queries used} → {files found}
         - Pattern found: {tool} → {file/symbol} → {reuse}
         - Modified files read: {tool} → {files}
         - Symbols/types verified: {tool} → {symbols|n/a}
@@ -295,6 +297,11 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
     <phase id="7" name="mandatory-mcp-research" critical="true">
       <principle>MCP research is mandatory. Find one closest reusable pattern. Read only what is needed.</principle>
 
+      <semantic-discovery>
+        <step tool="mcp__semble__search" required="true">Find conceptually related code, patterns, and files using natural-language query first — antes than any symbol/file search. Use 2-3 diverse queries to catch all relevant areas.</step>
+        <step tool="mcp__semble__find_related" required="true">For the top result, find semantically adjacent code and reused patterns.</step>
+      </semantic-discovery>
+
       <reference>
         <step tool="mcp__serena__find_symbol" required="true">Find nearest existing implementation for this task type.</step>
         <step tool="mcp__octocode__search" required="true">Search nearby file-level patterns if symbol lookup is insufficient.</step>
@@ -334,6 +341,7 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
       </library_docs>
 
       <gate>
+        <require>MCP Evidence Log has semantic discovery (semble) entry.</require>
         <require>MCP Evidence Log has nearest_pattern.</require>
         <require condition="task modifies existing files">modified_files_read present.</require>
         <require condition="symbols/types/functions used">symbols_verified present.</require>
@@ -503,6 +511,7 @@ git commit -m "chore tasks: mark {TASK-ID} complete"
       <rule>Never use Bash grep/find/cat as first-line code research when MCP is available.</rule>
       <rule>Parallel subagents must receive and obey MCP contract.</rule>
       <rule>Reject subagent output that lacks MCP Evidence Log.</rule>
+      <rule>mcp__semble is mandatory — call mcp__semble__search before every mcp__octocode__search or mcp__serena__find_symbol. It is the most token-efficient path to relevant code.</rule>
     </mcp_rules>
 
     <hard_rules>

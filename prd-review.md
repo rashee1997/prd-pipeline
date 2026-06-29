@@ -1,7 +1,7 @@
 ---
 description: "PRD Step 6/7 — Parallel code review with Ponytail discipline. Dispatches specialist reviewers, merges findings, deduplicates, sorts by severity."
 argument-hint: "<path to prd-folder>"
-allowed-tools: Bash, mcp__serena, mcp__octocode
+allowed-tools: Bash, mcp__serena, mcp__octocode, mcp__semble
 ---
 
 <command name="/prd-review">
@@ -22,6 +22,7 @@ allowed-tools: Bash, mcp__serena, mcp__octocode
       <item>No padding</item>
       <item>No invented findings</item>
       <item>No finding without file and line</item>
+      <item priority="critical">mcp__semble is MANDATORY for all review code discovery — use mcp__semble__search to find all relevant files before reading them. It is the most token-efficient path to finding changed code by concept.</item>
       <item>Deduplicate before output</item>
       <item>CRITICAL and HIGH must block PR</item>
     </rules>
@@ -63,6 +64,10 @@ allowed-tools: Bash, mcp__serena, mcp__octocode
       <task>Collect changed files, TypeScript errors, PRD/spec context, and file buckets.</task>
 
       <steps>
+        <step name="semantic-discovery">
+          Use mcp__semble__search with 2-3 natural-language queries related to the feature/module being reviewed to find all relevant files. This is the most token-efficient path — do not skip.
+        </step>
+
         <step name="detect-base">
 ```bash
 BASE=$(git remote show origin 2>/dev/null | grep "HEAD branch" | awk '{print $NF}')
@@ -403,6 +408,7 @@ SEVERITY · CATEGORY · path/to/file.ts:LINE
       <rule>Ponytail applies to every reviewer</rule>
       <rule>Do not recommend new abstraction unless duplication or boundary pressure is proven</rule>
       <rule>Do not recommend new dependency unless existing code, stdlib, and platform cannot solve it safely</rule>
+      <rule>mcp__semble is mandatory for all review code discovery — call mcp__semble__search to find relevant files by concept before reading them. Most token-efficient path.</rule>
     </hard-rules>
   </control>
 

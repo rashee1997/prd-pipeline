@@ -26,6 +26,7 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
       <item>Flag spec/codebase discrepancies; never plan around them silently.</item>
       <item priority="critical">Treat every name in prd.md/spec.md as an unverified CLAIM until re-confirmed against the live codebase in Phase 2 — specs can go stale or contain a slipped-through hallucination. No file path/symbol/column/route/prop may appear in plan.md unless backed by a tool result from this session; an unconfirmed spec claim is a discrepancy to record, not a name to "correct" by guessing the closest match.</item>
       <item priority="critical">Any [UNVERIFIED] marker already in spec.md must be resolved or explicitly carried into plan.md's discrepancies — never silently dropped or quietly assigned a guessed real name.</item>
+      <item priority="critical">mcp__semble is MANDATORY for all codebase validation — it is 100x more token-efficient than octocode/serena for finding files and code. You MUST call mcp__semble__search before every mcp__octocode__search or mcp__serena__find_symbol. No codebase validation may start without at least one mcp__semble__search call.</item>
     </rules>
   </system>
 
@@ -148,11 +149,10 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
         </step>
       </external-check>
 
-      <complexity-calibration optional="true">
-        <step tool="mcp__semble__find_related">
-          Use only if effort/sequence is unclear from spec and codebase.
-        </step>
-      </complexity-calibration>
+      <semantic-discovery>
+        <step tool="mcp__semble__search" required="true">Find conceptually related code, patterns, and files using natural-language query — this is the most token-efficient path. Use 2-3 diverse queries.</step>
+        <step tool="mcp__semble__find_related" required="true">For top results, find semantically adjacent code and hidden dependencies.</step>
+      </semantic-discovery>
 
       <tdd-inventory condition="tdd_mode=true">
         <step tool="mcp__octocode__get_file">
@@ -539,6 +539,7 @@ Step X → Step Y → Done
       <rule>Do not schedule UI before stable API/data contracts unless mocked intentionally.</rule>
       <rule>Do not plan implementation before regression safety net for enhancements.</rule>
       <rule>No file path/symbol/field name enters plan.md unless "confirmed" or explicitly [NEW]/[UNVERIFIED] in the verification ledger — a plan step is a build instruction, so an unverified name here becomes hallucinated code one step later.</rule>
+      <rule>mcp__semble is mandatory for all codebase validation. Call mcp__semble__search before every mcp__octocode__search or mcp__serena__find_symbol. It is the most token-efficient path to finding relevant code.</rule>
     </critical>
   </control>
 
