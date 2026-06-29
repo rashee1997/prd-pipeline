@@ -24,8 +24,8 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
       <item>Do not invent product changes not supported by PRD docs, task index, git commits, or diff evidence.</item>
       <item>Changelog is for humans, not a raw git log.</item>
       <item>If changelog/release notes do not exist, create them from git history and PRD artifacts.</item>
-      <item>If package.json exists and has version, update it.</item>
-      <item>If package-lock.json, npm-shrinkwrap.json, pnpm-lock.yaml, bun.lock, or yarn.lock exists, update only when the package manager command supports safe version sync.</item>
+      <item>If a version manifest exists (package.json, pyproject.toml, Cargo.toml, build.gradle, etc.), update it.</item>
+      <item>If a lockfile exists (package-lock.json, pnpm-lock.yaml, bun.lock, yarn.lock, poetry.lock, Pipfile.lock, Cargo.lock, go.sum, Gemfile.lock, etc.), update only when the package manager command supports safe version sync.</item>
       <item>Never use git add . or git add -A.</item>
       <item>Release commit must stage explicit files only.</item>
       <item>Tag must match version: v{version}.</item>
@@ -59,7 +59,7 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
 
     <use_bash_for>
       <item>git status, log, tag, diff, branch</item>
-      <item>package.json version update</item>
+      <item>version manifest update (package.json, pyproject.toml, Cargo.toml, etc.)</item>
       <item>writing changelog/release files</item>
       <item>explicit git add/commit/tag/push</item>
       <item>gh release create</item>
@@ -160,12 +160,24 @@ git tag --list --sort=-v:refname | head -20
     </phase>
 
     <phase id="2" name="discover-release-conventions">
-      <task>Detect existing changelog, release notes, package metadata, and versioning conventions.</task>
+      <task>Read project context from discovery.md, then detect changelog, release notes, and versioning conventions.</task>
+
+      <read-project-context>
+        Read the `<project_commands>` section from `{prd_folder}/../discovery.md`.
+        Extract `<language>` and `<package_manager>`, then consult the
+        `<language-map id="canonical">` in prd-discover.md phase 0.6 to find the
+        correct `<version-manifest>` for this language.
+
+        Follow the **discovery-read-pattern** in prd-discover.md phase 0.6 for
+        failure handling if discovery.md is absent or fields are unknown.
+        If discovery.md is genuinely absent, fall back to the manifest scanning
+        step below (the `find` command) to locate version files.
+      </read-project-context>
 
       <steps>
 ```bash
 ls
-find . -maxdepth 3 \( -iname "CHANGELOG.md" -o -iname "RELEASE_NOTES.md" -o -iname "RELEASES.md" -o -iname "package.json" -o -iname "README.md" \)
+find . -maxdepth 3 \( -iname "CHANGELOG.md" -o -iname "RELEASE_NOTES.md" -o -iname "RELEASES.md" -o -iname "package.json" -o -iname "pyproject.toml" -o -iname "Cargo.toml" -o -iname "build.gradle" -o -iname "README.md" \)
 git tag --list --sort=-v:refname
 git log --oneline --decorate -50
 ```
@@ -175,8 +187,8 @@ git log --oneline --decorate -50
         <item>CHANGELOG.md location if exists</item>
         <item>RELEASE_NOTES.md or docs/releases location if exists</item>
         <item>README.md location</item>
-        <item>package.json location</item>
-        <item>current package version if package.json exists</item>
+        <item>version manifest location — guided by language from discovery.md (see above)</item>
+        <item>current version if a version manifest exists</item>
         <item>latest git tag matching v* or semver-like pattern</item>
         <item>previous release notes/changelog style</item>
         <item>whether project uses Keep a Changelog style</item>
@@ -186,7 +198,7 @@ git log --oneline --decorate -50
         <step tool="mcp__semble__search" required="true">Find all release-related files, version references, changelog locations, and release scripts using natural-language queries — most token-efficient path.</step>
         <step tool="mcp__semble__find_related" required="true">Find semantically adjacent release patterns (version badges, CI config, release workflows).</step>
         <step tool="mcp__octocode__get_file">
-          Read existing README.md, CHANGELOG.md, RELEASE_NOTES.md, and package.json if they exist.
+          Read existing README.md, CHANGELOG.md, RELEASE_NOTES.md, and any version manifest (package.json, pyproject.toml, Cargo.toml, build.gradle, etc.) if they exist.
         </step>
         <step tool="mcp__octocode__search">
           Search for version badges, release references, changelog links, package version references, and release scripts.
@@ -250,10 +262,10 @@ fi
     </phase>
 
     <phase id="4" name="determine-version">
-      <task>Determine next version using explicit argument, SemVer rules, package.json, tags, and PRD impact.</task>
+      <task>Determine next version using explicit argument, SemVer rules, the project's version manifest (package.json, pyproject.toml, Cargo.toml, etc.), tags, and PRD impact.</task>
 
       <version_sources>
-        <source>package.json version if present</source>
+        <source>version manifest (package.json, pyproject.toml, Cargo.toml, etc.) if present</source>
         <source>latest git tag if present</source>
         <source>existing changelog latest version if present</source>
         <source>argument bump mode if provided</source>
@@ -454,7 +466,7 @@ node -e "const fs=require('fs'); const p='package.json'; const j=JSON.parse(fs.r
 
       <steps>
 ```bash
-git diff -- CHANGELOG.md RELEASE_NOTES.md README.md package.json package-lock.json pnpm-lock.yaml yarn.lock bun.lock 2>/dev/null || true
+git diff -- CHANGELOG.md RELEASE_NOTES.md README.md $(ls package.json pyproject.toml Cargo.toml go.mod go.sum poetry.lock Pipfile.lock Gemfile.lock 2>/dev/null | tr '\n' ' ') 2>/dev/null || true
 git status --short
 ```
       </steps>
@@ -463,9 +475,12 @@ git status --short
         <step condition="package scripts exist">Run the same final checks used by /prd-pr when available.</step>
         <examples>
 ```bash
-bun tsc --noEmit
-bun test
-bun run build
+# Run the project's compile/type-check command (e.g. bun tsc --noEmit, cargo check, go build ./..., mypy .)
+{compile/type-check command from task acceptance criteria}
+# Run the project's test command (e.g. bun test, pytest, cargo test, go test ./...)
+{test command from task acceptance criteria}
+# Run the project's build command if applicable
+{build command from task acceptance criteria}
 ```
         </examples>
       </project_checks>
@@ -473,7 +488,7 @@ bun run build
       <require>
         <item>Changelog updated or created.</item>
         <item>Release notes updated or created.</item>
-        <item>Version updated if package.json exists.</item>
+        <item>Version updated if a version manifest exists.</item>
         <item>No unrelated files changed.</item>
         <item>Final checks pass or user explicitly accepts release with documented failing checks.</item>
       </require>
@@ -502,11 +517,10 @@ git add CHANGELOG.md
 git add RELEASE_NOTES.md 2>/dev/null || true
 git add docs/releases/v{next_version}.md 2>/dev/null || true
 git add README.md 2>/dev/null || true
-git add package.json 2>/dev/null || true
-git add package-lock.json 2>/dev/null || true
-git add pnpm-lock.yaml 2>/dev/null || true
-git add yarn.lock 2>/dev/null || true
-git add bun.lock 2>/dev/null || true
+# Stage whichever version manifest and lockfiles were actually modified
+git add package.json pyproject.toml Cargo.toml go.mod go.sum \
+  package-lock.json pnpm-lock.yaml yarn.lock bun.lock \
+  poetry.lock Pipfile.lock Gemfile.lock 2>/dev/null || true
 git status --short
 git commit -m "chore(release): v{next_version}"
 ```
@@ -591,7 +605,7 @@ v{next_version}
 Files updated:
 - CHANGELOG.md
 - {release_notes_file}
-- package.json {if changed}
+- {version manifest file, e.g. package.json / pyproject.toml / Cargo.toml} {if changed}
 - README.md {if changed}
 
 Git:

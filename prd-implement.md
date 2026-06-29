@@ -23,7 +23,7 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
       <item>Never implement before task resolution, validation gate, branch setup, and MCP research.</item>
       <item>Branch setup is required for single, multi-task, and layer mode.</item>
       <item>Never switch/create branches with uncommitted changes.</item>
-      <item>Never use any, @ts-ignore, TODO, skipped tests, console.log, git add ., or git add -A.</item>
+      <item>Never use unsafe type constructs (any, @ts-ignore, #noqa, pylint: disable, etc.), TODO, skipped tests, debug-print statements (console.log, print, fmt.Println, etc.), git add ., or git add -A.</item>
       <item>Reuse nearest existing pattern before inventing a new one.</item>
       <item priority="critical">mcp__semble is MANDATORY for all implementation research — it is 100x more token-efficient than octocode/serena for finding files and code. You MUST call mcp__semble__search before every mcp__octocode__search or mcp__serena__find_symbol. No implementation research may start without at least one mcp__semble__search call. Never use Bash grep/find for code discovery.</item>
       <item>Security, auth, validation, data-loss paths, and acceptance checks are mandatory.</item>
@@ -50,8 +50,8 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
       <item>reading every existing file the task modifies</item>
       <item>symbol/type/function verification</item>
       <item>API/auth/permission/validation/error patterns</item>
-      <item>Prisma/database/seed/migration patterns</item>
-      <item>React/UI/test/mock patterns</item>
+      <item>ORM/database/seed/migration patterns</item>
+      <item>UI framework/test/mock patterns</item>
       <item>library docs when exact API behavior is not proven locally</item>
     </must_use_mcp_for>
 
@@ -60,7 +60,7 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
       <item>reading generated PRD artifacts</item>
       <item>git operations</item>
       <item>targeted tests (all agents — with file/folder paths, never full suite)</item>
-      <item>typecheck, build (memory-intensive — main agent only after all parallel subagents complete)</item>
+      <item>static analysis / type-check / compile, build (memory-intensive — main agent only after all parallel subagents complete)</item>
       <item>explicit file staging and commits</item>
     </use_bash_for>
 
@@ -220,7 +220,7 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
         <item>modified_files_read if modifying existing files</item>
         <item>symbols_verified if using referenced symbols/types/functions</item>
         <item>auth_validation_error_pattern for API/auth/server mutation tasks</item>
-        <item>database_pattern for DB/seed/Prisma tasks</item>
+        <item>database_pattern for DB/seed/ORM tasks</item>
         <item>test_pattern for test tasks</item>
         <item>ui_pattern for UI tasks</item>
         <item>library_docs if external API behavior is not proven locally</item>
@@ -337,21 +337,21 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
       </symbols>
 
       <security condition="api|auth|permission|token|public API|server action">
-        <step tool="mcp__octocode__search" required="true">Find existing auth, permission, Zod, public route, token, and generic error patterns.</step>
+        <step tool="mcp__octocode__search" required="true">Find existing auth, permission, input-validation, public route, token, and generic error patterns.</step>
         <step tool="mcp__octocode__github_search" condition="unfamiliar security pattern">Validate externally only if local pattern is missing.</step>
       </security>
 
-      <database condition="database|seed|prisma|migration">
-        <step tool="mcp__octocode__search" required="true">Find existing Prisma import, upsert, transaction, deleteMany, seed, and mock patterns.</step>
+      <database condition="database|seed|orm|migration">
+        <step tool="mcp__octocode__search" required="true">Find existing ORM/database client import, query, transaction, bulk-delete, seed, and mock patterns.</step>
       </database>
 
-      <tests condition="test|RED|GREEN|jest|vitest">
+      <tests condition="test|RED|GREEN|spec">
         <step tool="mcp__octocode__search" required="true">Find existing test style, mock helpers, assertion patterns, and runner conventions.</step>
       </tests>
 
-      <ui condition="UI_TASK|component|React|tsx">
-        <step tool="mcp__octocode__search" required="true">Find nearest component, toast, loading, disabled, and token patterns.</step>
-        <step>Bash fallback only for generated/local design artifact discovery: cat DESIGN.md 2>/dev/null || find . -name "tokens.css" -o -name "theme.ts" | head -5</step>
+      <ui condition="UI_TASK|component|view|template">
+        <step tool="mcp__octocode__search" required="true">Find nearest component, notification/feedback, loading, disabled, and token patterns.</step>
+        <step>Bash fallback only for generated/local design artifact discovery: cat DESIGN.md 2>/dev/null || find . \( -name "tokens.*" -o -name "theme.*" -o -name "design-tokens.*" \) | head -5</step>
       </ui>
 
       <library_docs condition="external library API not locally proven">
@@ -364,7 +364,7 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
         <require condition="task modifies existing files">modified_files_read present.</require>
         <require condition="symbols/types/functions used">symbols_verified present.</require>
         <require condition="api/auth/server action">auth_validation_error_pattern present.</require>
-        <require condition="database/seed/prisma">database_pattern present.</require>
+        <require condition="database/seed/orm">database_pattern present.</require>
         <require condition="test task">test_pattern present.</require>
         <require condition="UI task">ui_pattern present.</require>
       </gate>
@@ -400,11 +400,11 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
       </re-anchoring>
 
       <quality>
-        <typescript>explicit return types, no any, no unsafe casts, no ! without proof</typescript>
-        <security>Zod at boundaries, auth before logic, generic errors, secure tokens</security>
+        <static-typing>Explicit return/parameter types, no unsafe/dynamic casts, no unchecked null assertions without proof; apply language-specific equivalents.</static-typing>
+        <security>Schema/input validation at boundaries (e.g. Zod, Pydantic, Joi, etc.), auth before logic, generic errors, secure tokens</security>
         <maintainability>single responsibility, named constants, early returns, no duplicate logic</maintainability>
         <file-size>If adding code would push any file past 400 lines, split it into a new file with a clear responsibility boundary first. Monolithic files cause agent drift and context saturation.</file-size>
-        <ui condition="UI_TASK">tokens only, mobile-first, shadcn/ui primitives, loading/empty/error/focus/disabled states</ui>
+        <ui condition="UI_TASK">tokens only, mobile-first, project UI primitives (mirror nearest existing component), loading/empty/error/focus/disabled states</ui>
         <pattern>mirror nearest existing implementation structure</pattern>
       </quality>
 
@@ -422,8 +422,8 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
         <check>Bash with timeout 120000: run the test command from this task's acceptance criteria with the task's file paths — NEVER run full test suite, build, or lint.</check>
         <check>Every instructed file created/modified.</check>
         <check>No files outside task scope touched.</check>
-        <check>No any, TODO, @ts-ignore, console.log, skipped tests, disabled rules.</check>
-        <check condition="api/auth">Zod + auth + generic errors verified.</check>
+        <check>No unsafe type constructs (any, @ts-ignore, #noqa, etc.), TODO, debug-print statements (console.log, print, etc.), skipped tests, disabled rules.</check>
+        <check condition="api/auth">Input validation (project-standard library, e.g. Zod/Pydantic/Joi) + auth + generic errors verified.</check>
         <check condition="UI_TASK">No hardcoded design values, mobile-first, required states present.</check>
         <check>Every column/field/symbol name written in code traces to an MCP Evidence Log entry — no name introduced beyond what was verified.</check>
       </checks>
@@ -494,12 +494,12 @@ git commit -m "chore tasks: mark {TASK-ID} complete"
         Test Results:
         {actual acceptance output}
 
-        TypeScript Check:
+        Static Analysis / Type Check:
         {actual typecheck output}
 
         Security & Quality:
-        - Zero any: ✅
-        - Zod validation where needed: ✅
+        - Zero unsafe/untyped constructs: ✅
+        - Input validation (project-standard schema library) where needed: ✅
         - Auth before logic where needed: ✅
         - MCP research completed before implementation: ✅
         - No git add .: ✅
@@ -543,10 +543,10 @@ git commit -m "chore tasks: mark {TASK-ID} complete"
 
     <hard_rules>
       <rule>Never implement before validation gate, branch setup, and MCP research.</rule>
-      <rule>Never use any.</rule>
+      <rule>Never use unsafe/untyped constructs (TypeScript any, Python untyped Any, etc.).</rule>
       <rule>Never invent a pattern without evidence.</rule>
       <rule>Never run lint — lint is forbidden for all agents.</rule>
-      <rule>Typecheck must pass before commit with timeout 300000. Use the typecheck command from the task file's acceptance criteria.</rule>
+      <rule>Static analysis / type-check / compile must pass before commit with timeout 300000. Use the static-analysis command from the task file's acceptance criteria.</rule>
       <rule>All agents (main and sub) may run test commands but ONLY targeted to test file paths or test folder paths for files they created/modified. NEVER run full test suite — full suite is main-agent only after all parallel subagents complete, and even then only as targeted tests per task set.</rule>
       <rule>Test commands must always include timeout 120000 minimum. Use the test command from the task file's acceptance criteria with specific file/folder paths — never run the test runner without path restrictions.</rule>
       <rule>Acceptance check must pass before marking complete.</rule>

@@ -183,6 +183,90 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
         <rule>For test command, prefer the runner directly with file paths (e.g., `npx vitest run`, `pytest`, `cargo test`) rather than the package manager script wrapper. This makes targeted test execution easier.</rule>
         <rule>If the project has a Makefile with test/check/build targets, prefer those over direct commands.</rule>
       </rules>
+
+      <!-- ─────────────────────────────────────────────────────────────────
+           CANONICAL LANGUAGE MAP
+           All downstream commands (prd-review, prd-release, prd-implement,
+           prd-validate, prd-pr) MUST refer to this table instead of
+           duplicating language→manifest or language→tooling mappings.
+           ───────────────────────────────────────────────────────────────── -->
+      <language-map id="canonical">
+        <lang id="typescript">
+          <version-manifest>package.json</version-manifest>
+          <typecheck>tsc --noEmit (or package.json "typecheck"/"type-check" script)</typecheck>
+          <extensions>.ts  .tsx</extensions>
+        </lang>
+        <lang id="javascript">
+          <version-manifest>package.json</version-manifest>
+          <typecheck>eslint . (or package.json "lint" script)</typecheck>
+          <extensions>.js  .mjs  .cjs  .jsx</extensions>
+        </lang>
+        <lang id="python">
+          <version-manifest>pyproject.toml  or  setup.py  or  setup.cfg</version-manifest>
+          <typecheck>mypy .  or  ruff check .  or  pyright</typecheck>
+          <extensions>.py</extensions>
+        </lang>
+        <lang id="rust">
+          <version-manifest>Cargo.toml</version-manifest>
+          <typecheck>cargo clippy -- -D warnings  or  cargo check</typecheck>
+          <extensions>.rs</extensions>
+        </lang>
+        <lang id="go">
+          <version-manifest>go.mod  (no version field — version is tracked via git tags only)</version-manifest>
+          <typecheck>golangci-lint run  or  go vet ./...</typecheck>
+          <extensions>.go</extensions>
+        </lang>
+        <lang id="java">
+          <version-manifest>build.gradle  or  pom.xml</version-manifest>
+          <typecheck>./gradlew build  or  mvn compile</typecheck>
+          <extensions>.java</extensions>
+        </lang>
+        <lang id="kotlin">
+          <version-manifest>build.gradle.kts  or  build.gradle</version-manifest>
+          <typecheck>./gradlew build</typecheck>
+          <extensions>.kt  .kts</extensions>
+        </lang>
+        <lang id="ruby">
+          <version-manifest>Gemfile  /  *.gemspec</version-manifest>
+          <typecheck>bundle exec srb tc  (Sorbet)  or  bundle exec rubocop --no-color</typecheck>
+          <extensions>.rb</extensions>
+        </lang>
+        <lang id="csharp">
+          <version-manifest>*.csproj</version-manifest>
+          <typecheck>dotnet build --no-restore</typecheck>
+          <extensions>.cs</extensions>
+        </lang>
+        <lang id="elixir">
+          <version-manifest>mix.exs</version-manifest>
+          <typecheck>mix dialyzer  or  mix compile --warnings-as-errors</typecheck>
+          <extensions>.ex  .exs</extensions>
+        </lang>
+      </language-map>
+
+      <!-- ─────────────────────────────────────────────────────────────────
+           CANONICAL DISCOVERY-READ PATTERN
+           Copy this exact instruction block into any downstream command
+           that needs to consume project_commands. Do NOT write new ad-hoc
+           failure messages — use this wording verbatim so behavior is
+           consistent across the pipeline.
+           ───────────────────────────────────────────────────────────────── -->
+      <discovery-read-pattern>
+        Read the `<project_commands>` section from `{prd_folder}/../discovery.md`.
+
+        For language-to-manifest or language-to-tooling lookups, refer to the
+        `<language-map id="canonical">` in prd-discover.md phase 0.6 — do not
+        duplicate those mappings inline.
+
+        **Missing or incomplete discovery.md (standard failure response):**
+        If discovery.md is absent, or the required field is set to "unknown" or
+        is empty, do NOT attempt inline re-detection. Instead emit:
+
+        WARN · SETUP · (no file):0
+          ✗  discovery.md missing or `<{field}>` is unknown
+          ✓  Run `/prd-discover {prd_folder}` first, then re-run this command.
+
+        Then skip the step that required the missing field.
+      </discovery-read-pattern>
     </phase>
 
     <phase id="1" name="research" silent="true">

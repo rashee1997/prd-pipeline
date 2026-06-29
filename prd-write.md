@@ -97,7 +97,7 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
         </dimension>
 
         <dimension name="database" condition="if feature adds/changes models, columns, queries, or migrations">
-          <search tool="mcp__octocode__search">db/prisma usage for relevant models and adjacent models</search>
+          <search tool="mcp__octocode__search">database/ORM usage for relevant models and adjacent models</search>
           <read tool="mcp__octocode__get_file" count="2-5">query files and schema/model files</read>
           <extract>models, relations, required fields, indexes, migrations, destructive-risk areas</extract>
         </dimension>
@@ -558,9 +558,11 @@ status: "Draft"
 ## 4. Database Schema
 
 ### 4.1 New Models (mark NEW — not in current schema)
-```prisma
-model Example {
-  id String @id
+```
+<!-- Use the project's actual schema format (Prisma schema, SQL DDL, SQLAlchemy model, GORM struct, ActiveRecord migration, etc.) -->
+<!-- Example shape only — copy project's actual conventions -->
+ModelName {
+  id: primary_key
 }
 ```
 
@@ -583,17 +585,17 @@ For each route:
 **Auth:** ...  
 **Auth reference:** {evidence id, file:line}  
 **Request schema:**  
-```ts
+```{lang}
 ...
 ```
 
 **Success response:**  
-```ts
+```{lang}
 ...
 ```
 
 **Error responses:**  
-```ts
+```{lang}
 ...
 ```
 
@@ -609,13 +611,14 @@ For each route:
 
 For each component:
 
+<!-- Section 6 applies only if the feature has a UI layer. Skip entirely for API-only, CLI, or backend-only features. -->
 ### 6.X {ComponentName} (mark NEW if not existing)
 
 **Path:** ... (evidence id if existing)  
 **Type:** Server | Client | Shared  
 **Purpose:** ...  
 **Props:**  
-```ts
+```{lang}
 interface Props {
   ...
 }
@@ -634,7 +637,7 @@ For each utility:
 
 **Path:** ... (evidence id if existing)  
 **Signature:**  
-```ts
+```{lang}
 ...
 ```
 

@@ -61,7 +61,7 @@ allowed-tools: Bash, mcp__serena, mcp__octocode, mcp__semble
   <flow>
 
     <phase id="1" name="gather-context">
-      <task>Collect changed files, TypeScript errors, PRD/spec context, and file buckets.</task>
+      <task>Collect changed files, static analysis/lint errors (or typecheck errors if the project has a type-checker), PRD/spec context, and file buckets.</task>
 
       <steps>
         <step name="semantic-discovery">
@@ -77,13 +77,18 @@ git diff $(git merge-base HEAD $BASE)...HEAD --name-only
 ```
         </step>
 
-        <step name="typescript-check">
-```bash
-bun tsc --noEmit 2>&1
-```
+        <step name="static-analysis">
+          Resolve the static-analysis/lint/typecheck command using this priority order:
+
+          Read the `<project_commands>` section from `{prd-folder}/../discovery.md`.
+          Use the `<typecheck>` field value as the static-analysis command to run.
+
+          Follow the **discovery-read-pattern** defined in prd-discover.md phase 0.6
+          for failure handling if discovery.md is absent or `<typecheck>` is unknown.
+
           <on-fail>
             Record each error as:
-            CRITICAL · TYPESCRIPT · file:line / ✗ {error} / ✓ Fix the type error before continuing.
+            CRITICAL · TYPECHECK · file:line / ✗ {error} / ✓ Fix the type error before continuing.
           </on-fail>
         </step>
 
@@ -103,14 +108,98 @@ cat {prd-folder}/tasks/index.md
         </step>
 
         <step name="bucket-files">
-          <bucket name="ROUTE_FILES">src/app/api/**/*.ts</bucket>
-          <bucket name="ACTION_FILES">files containing "use server"</bucket>
-          <bucket name="COMPONENT_FILES">changed src/**/*.tsx</bucket>
-          <bucket name="SERVICE_FILES">changed src/lib/**/*.ts or src/modules/**/*.ts</bucket>
-          <bucket name="SCHEMA_FILES">prisma/schema.prisma</bucket>
-          <bucket name="TEST_FILES">*.test.ts, *.spec.ts, __tests__/**</bucket>
-          <bucket name="CONFIG_FILES">*.config.*, .env*, next.config.*</bucket>
-          <bucket name="ALL_TS_FILES">all changed .ts/.tsx files</bucket>
+          Using the changed-files list from the detect-base step above (do not re-run git diff),
+          read `<language>` and `<package_manager>` from the `<project_commands>` section of
+          `{prd-folder}/../discovery.md` to determine framework context. No manifest re-reading needed.
+          Follow the **discovery-read-pattern** in prd-discover.md phase 0.6 for failure handling.
+
+          Use `<language>` (as defined in the `<language-map id="canonical">` in prd-discover.md
+          phase 0.6) to select the appropriate bucket rules below:
+
+          Bucket each changed file using these language-agnostic signals applied after
+          framework context is established. Every bucket that has zero matches must be noted as empty —
+          any reviewer assigned to an empty bucket must self-report PASS with note
+          "no applicable files in this change" rather than running with zero files.
+
+          <bucket name="ROUTE_FILES">
+            Files matching the detected framework's routing convention:
+            - nextjs:   src/app/api/**/*  or  pages/api/**/*
+            - react/node-server: routes/**/*  or  src/routes/**/*  or  *router*.*  or  *controller*.*
+            - fastapi:  files containing "@router." or "APIRouter" or in a routers/ directory
+            - django:   views.py files  or  *views/*  or  urls.py files
+            - flask:    files containing "@app.route" or "@blueprint.route"
+            - go:       files containing "http.Handle" or "r.Get/Post/Put/Delete" or in handlers/ directory
+            - rust:     files containing ".route(" or "actix_web::web::" or axum route definitions
+            - dotnet:   *Controller.cs files
+            - ruby:     app/controllers/**/*.rb
+            - unknown:  files in any path segment named api/, routes/, controllers/, handlers/, views/
+          </bucket>
+
+          <bucket name="ACTION_FILES">
+            Server-action / mutation files by framework:
+            - nextjs: files containing "use server"
+            - django/flask/fastapi: files containing mutation endpoints (POST/PUT/PATCH/DELETE handlers)
+            - other:  files whose path contains actions/, mutations/, or commands/
+            If this concept does not apply to the detected framework, bucket is empty.
+          </bucket>
+
+          <bucket name="COMPONENT_FILES">
+            UI component files for the detected frontend framework:
+            - nextjs/react: changed **/*.tsx  or  **/*.jsx  (non-test)
+            - vue:          changed **/*.vue
+            - svelte:       changed **/*.svelte
+            - angular:      changed *.component.ts
+            - backend-only (fastapi/django/flask/go/rust/dotnet/ruby with no frontend manifest):
+              bucket is empty
+          </bucket>
+
+          <bucket name="SERVICE_FILES">
+            Business logic / service-layer files. Detect by actual directory structure present
+            in this repo rather than assuming src/lib or src/modules. Look for directories named
+            lib/, services/, service/, modules/, domain/, core/, internal/, pkg/, app/ (non-web)
+            and classify changed files under those paths here.
+          </bucket>
+
+          <bucket name="SCHEMA_FILES">
+            Schema / migration files for whatever data layer is present:
+            - Prisma:    prisma/schema.prisma  or  prisma/migrations/**
+            - Drizzle:   **/schema.ts  or  **/drizzle/**
+            - Django:    **/models.py  or  **/migrations/*.py
+            - Rails:     db/schema.rb  or  db/migrate/**
+            - Go/SQLC:   **/*.sql  or  sqlc.yaml
+            - Rust/SQLx: migrations/**  or  **/*.sql
+            - dotnet EF: **/Migrations/**  or  *Context.cs
+            - plain SQL:  *.sql  or  migrations/**/*.sql
+          </bucket>
+
+          <bucket name="TEST_FILES">
+            Test files matching whatever test framework is detected:
+            - Jest/Vitest (JS/TS):  *.test.ts, *.test.tsx, *.spec.ts, *.spec.tsx, __tests__/**
+            - pytest (Python):      test_*.py, *_test.py, tests/**/*.py
+            - Go:                   *_test.go
+            - Rust:                 files containing #[cfg(test)] or in tests/ directory
+            - RSpec (Ruby):         *_spec.rb, spec/**/*.rb
+            - xUnit/NUnit (dotnet): *Tests.cs, *Test.cs
+          </bucket>
+
+          <bucket name="CONFIG_FILES">
+            Config and env files — generic signals plus framework-specific config:
+            - Always include: *.config.*, .env*, .env.*, *.env
+            - nextjs detected:   next.config.*
+            - vite detected:     vite.config.*
+            - webpack detected:  webpack.config.*
+            - Django detected:   settings.py, settings/**/*.py
+            - Go detected:       *.yaml, *.toml config files at root
+            - Rust detected:     Cargo.toml, build.rs
+            - dotnet detected:   appsettings*.json, *.csproj
+            - Ruby detected:     config/**/*.rb, database.yml
+          </bucket>
+
+          <bucket name="ALL_SOURCE_FILES">
+            All changed source files in the primary language extension(s) detected above
+            (replaces the former ALL_TS_FILES which hardcoded TypeScript).
+            Example: .py for Python, .go for Go, .rs for Rust, .ts/.tsx for TypeScript.
+          </bucket>
         </step>
       </steps>
     </phase>
@@ -122,14 +211,14 @@ cat {prd-folder}/tasks/index.md
         You are a specialist code reviewer. Read only your assigned files.
         Output findings only. No praise. No padding.
         Format:
-        SEVERITY · CATEGORY · path/to/file.ts:LINE / ✗ problem / ✓ fix
+        SEVERITY · CATEGORY · path/to/file:LINE / ✗ problem / ✓ fix
 
         Severities: CRITICAL | HIGH | MEDIUM | LOW
         If clean: PASS · CATEGORY
       </common-agent-contract>
 
       <reviewer id="1" name="spec-compliance">
-        <files>ALL_TS_FILES + spec/prd excerpts</files>
+        <files>ALL_SOURCE_FILES + spec/prd excerpts</files>
 
         <ponytail-review>
           <rule>Do not ask for extra implementation beyond PRD/spec.</rule>
@@ -153,9 +242,9 @@ cat {prd-folder}/tasks/index.md
           <finding condition="faithfulness drift">CRITICAL · SPEC · {file}:{line} / ✗ Code behavior drifts from acceptance criteria — passes tests but does something different from stated intent / ✓ Reconcile code behavior with acceptance criteria; criteria are truth</finding>
           <finding condition="route missing">CRITICAL · SPEC · {path}:0 / ✗ Route {METHOD} {path} missing / ✓ Create per spec</finding>
           <finding condition="bad response shape">HIGH · SPEC · {file}:{line} / ✗ Response shape deviates from spec / ✓ Match spec shape</finding>
-          <finding condition="auth missing">CRITICAL · SECURITY · {file}:{line} / ✗ Auth required by spec but auth() not called / ✓ Call auth() before logic</finding>
+          <finding condition="auth missing">CRITICAL · SECURITY · {file}:{line} / ✗ Auth required by spec but no authentication check before business logic / ✓ Call the project's auth middleware or session-check function before executing logic</finding>
           <finding condition="frozen contract changed">CRITICAL · COMPAT · {file}:{line} / ✗ Frozen contract {name} broken / ✓ Restore signature; make additive change</finding>
-          <finding condition="model missing">CRITICAL · SPEC · prisma/schema.prisma:0 / ✗ Model {name} missing / ✓ Add per spec</finding>
+          <finding condition="model missing">CRITICAL · SPEC · {schema-file}:0 / ✗ Model/schema {name} missing / ✓ Add per spec</finding>
         </findings>
       </reviewer>
 
@@ -164,32 +253,32 @@ cat {prd-folder}/tasks/index.md
 
         <ponytail-review>
           <rule>Never accept “minimal” code that skips auth, validation, ownership checks, or rate limits.</rule>
-          <rule>Prefer existing auth/Zod/rate-limit helpers over new security wrappers.</rule>
+          <rule>Prefer existing auth/validation/rate-limit helpers already in the project over new security wrappers.</rule>
           <rule>Smallest safe fix beats large security framework changes.</rule>
           <rule>Do not recommend new dependencies unless existing stack cannot cover the risk.</rule>
         </ponytail-review>
 
         <checklist>
-          <check>auth() before DB/business logic</check>
-          <check>IDOR ownership scope</check>
-          <check>Zod validation before DB writes/queries</check>
-          <check>crypto-safe token generation</check>
-          <check>no sensitive logs</check>
-          <check>no NEXT_PUBLIC secrets</check>
-          <check>server actions authenticate before mutation</check>
-          <check>rate limits on public mutation endpoints</check>
-          <check>no production source maps</check>
+          <check>Authentication/session check before DB/business logic</check>
+          <check>IDOR ownership scope — results filtered to current user/org</check>
+          <check>Input validation before DB writes/queries (using whatever validation library/pattern the project uses — Zod, Pydantic, marshmallow, Bean Validation, ActiveRecord validations, etc.)</check>
+          <check>Cryptographically secure random generation for secrets/tokens (not a weak PRNG)</check>
+          <check>No sensitive values in logs</check>
+          <check>No secrets leaked to the client via environment variable naming conventions (NEXT_PUBLIC_ in Next.js, VITE_ in Vite, PUBLIC_ in SvelteKit, etc.) or serialized into client-side bundles/responses</check>
+          <check>Server-side mutation handlers authenticate before mutating (applies to Next.js server actions, tRPC mutations, Django views, FastAPI route handlers, etc.)</check>
+          <check>Rate limits on public mutation endpoints</check>
+          <check>No source maps exposed in production builds (applies to any build system that emits source maps — Next.js, Vite, webpack, esbuild, etc.)</check>
         </checklist>
 
         <findings>
-          <finding>CRITICAL · SECURITY · {file}:{line} / ✗ Logic runs before auth() / ✓ Move auth() before logic</finding>
+          <finding>CRITICAL · SECURITY · {file}:{line} / ✗ Business logic executes before authentication check / ✓ Move the project's auth middleware or session-check call before any logic</finding>
           <finding>CRITICAL · SECURITY · {file}:{line} / ✗ No ownership filter on {model} lookup / ✓ Scope query to current user/org</finding>
-          <finding>CRITICAL · SECURITY · {file}:{line} / ✗ Unvalidated input reaches database / ✓ Validate with z.object(...).safeParse()</finding>
-          <finding>CRITICAL · SECURITY · {file}:{line} / ✗ Math.random() used for secret/token / ✓ Use crypto.randomBytes()</finding>
-          <finding>HIGH · SECURITY · {file}:{line} / ✗ Sensitive value logged / ✓ Remove or log non-sensitive id</finding>
-          <finding>CRITICAL · SECURITY · {file}:{line} / ✗ Secret exposed via NEXT_PUBLIC_ / ✓ Keep secret server-side</finding>
-          <finding>HIGH · SECURITY · {file}:{line} / ✗ Public mutation endpoint lacks rate limit / ✓ Apply existing rate-limit pattern</finding>
-          <finding>HIGH · SECURITY · {file}:{line} / ✗ Production source maps enabled / ✓ Disable productionBrowserSourceMaps</finding>
+          <finding>CRITICAL · SECURITY · {file}:{line} / ✗ Unvalidated input reaches database / ✓ Validate input with the project's validation library before the DB call</finding>
+          <finding>CRITICAL · SECURITY · {file}:{line} / ✗ Weak PRNG used for secret or token generation / ✓ Use a cryptographically secure source: crypto.randomBytes() in Node.js, secrets module in Python, crypto/rand in Go, OsRng in Rust, SecureRandom in Java</finding>
+          <finding>HIGH · SECURITY · {file}:{line} / ✗ Sensitive value logged / ✓ Remove or log only non-sensitive identifier</finding>
+          <finding>CRITICAL · SECURITY · {file}:{line} / ✗ Secret exposed to client via public env var or serialized into client bundle / ✓ Keep secret server-side; use the framework's server-only env pattern</finding>
+          <finding>HIGH · SECURITY · {file}:{line} / ✗ Public mutation endpoint lacks rate limit / ✓ Apply existing rate-limit pattern from this project</finding>
+          <finding>HIGH · SECURITY · {file}:{line} / ✗ Source maps enabled in production build / ✓ Disable source map output in the project's build config</finding>
         </findings>
       </reviewer>
 
@@ -205,64 +294,238 @@ cat {prd-folder}/tasks/index.md
 
         <checklist>
           <backend>
-            <check>N+1 DB queries</check>
-            <check>unbounded findMany</check>
-            <check>wide query without select</check>
-            <check>sequential independent queries</check>
-            <check>missing index for filter field</check>
-            <check>deep include nesting</check>
+            <check>N+1 DB queries — per-row query inside a loop instead of a batch query</check>
+            <check>Unbounded collection query — no pagination/limit applied to a query that could return large result sets</check>
+            <check>Wide query — fetching all columns/fields when only a subset is used</check>
+            <check>Sequential independent queries that could run concurrently</check>
+            <check>Missing index on a field used in a filter/WHERE clause</check>
+            <check>Deeply nested eager-loaded associations (ORM include/join depth > 2 levels without justification)</check>
           </backend>
           <frontend>
-            <check>key=index on dynamic list</check>
-            <check>inline object/array props causing rerenders</check>
-            <check>heavy client import without dynamic import</check>
-            <check>direct state mutation</check>
+            <!-- Apply only if COMPONENT_FILES is non-empty for this repo -->
+            <check>List rendered with index as key on a dynamic/reorderable list</check>
+            <check>Inline object/array literals passed as props causing unnecessary re-renders on every parent render</check>
+            <check>Large/heavy dependency imported synchronously when lazy/dynamic import would suffice</check>
+            <check>Direct mutation of shared state instead of producing a new value</check>
           </frontend>
         </checklist>
 
         <findings>
-          <finding>HIGH · PERFORMANCE · {file}:{line} / ✗ N+1 query in loop / ✓ Batch with findMany({ where: { id: { in: ids } } })</finding>
-          <finding>HIGH · PERFORMANCE · {file}:{line} / ✗ findMany() has no limit / ✓ Add take/skip with default limit</finding>
-          <finding>MEDIUM · PERFORMANCE · {file}:{line} / ✗ Fetches unused columns / ✓ Add select for used fields</finding>
-          <finding>MEDIUM · PERFORMANCE · {file}:{line} / ✗ Independent queries run sequentially / ✓ Use Promise.all</finding>
-          <finding>HIGH · PERFORMANCE · {file}:{line} / ✗ WHERE field lacks index / ✓ Add @@index([{field}])</finding>
-          <finding>MEDIUM · PERFORMANCE · {file}:{line} / ✗ key=index on dynamic list / ✓ Use stable id key</finding>
-          <finding>MEDIUM · PERFORMANCE · {file}:{line} / ✗ Inline object prop recreates each render / ✓ Hoist constant or useMemo</finding>
-          <finding>HIGH · PERFORMANCE · {file}:{line} / ✗ State mutated directly / ✓ Create new state reference</finding>
+          <finding>HIGH · PERFORMANCE · {file}:{line} / ✗ N+1 query in loop / ✓ Batch into a single query with an IN clause or the ORM's batch API (e.g. Prisma findMany where id in ids, SQLAlchemy in_(), Go sqlx.In, etc.)</finding>
+          <finding>HIGH · PERFORMANCE · {file}:{line} / ✗ Unbounded collection query — no limit / ✓ Add pagination or a default limit using the ORM/query-builder's equivalent: LIMIT in SQL, limit() in most ORMs, take in Prisma, offset/limit in SQLAlchemy, Limit in Go query builders</finding>
+          <finding>MEDIUM · PERFORMANCE · {file}:{line} / ✗ Query fetches unused columns / ✓ Project only required fields using SELECT / ORM select() / GraphQL field selection</finding>
+          <finding>MEDIUM · PERFORMANCE · {file}:{line} / ✗ Independent queries run sequentially / ✓ Run concurrently — Promise.all in JS, asyncio.gather in Python, goroutines in Go, join/rayon in Rust</finding>
+          <finding>HIGH · PERFORMANCE · {file}:{line} / ✗ Filtered field lacks a DB index / ✓ Add an index on {field} in the schema/migration file</finding>
+          <finding>MEDIUM · PERFORMANCE · {file}:{line} / ✗ List uses index as key — breaks reconciliation on reorder / ✓ Use a stable unique id as key</finding>
+          <finding>MEDIUM · PERFORMANCE · {file}:{line} / ✗ Inline object/array prop recreates reference each render / ✓ Hoist to module scope or memoize with the framework's memoization primitive</finding>
+          <finding>HIGH · PERFORMANCE · {file}:{line} / ✗ Shared state mutated directly / ✓ Produce a new value/reference instead of mutating in place</finding>
         </findings>
       </reviewer>
 
-      <reviewer id="4" name="typescript-strictness">
-        <files>ALL_TS_FILES</files>
+      <reviewer id="4" name="type-safety">
+        <files>ALL_SOURCE_FILES</files>
 
-        <ponytail-review>
-          <rule>Do not demand elaborate type architecture for local/simple types.</rule>
-          <rule>Prefer inferred internal types when safe; require explicit exported boundaries.</rule>
-          <rule>Reject any, unsafe casts, and unguarded unknown.</rule>
-          <rule>Small type guard beats broad assertion.</rule>
-        </ponytail-review>
+        <dispatch-logic>
+          Before running this reviewer, detect the primary language of ALL_SOURCE_FILES
+          (TypeScript/Flow → ts/tsx/flow extensions; Python → .py; Go → .go; Rust → .rs;
+          Java/Kotlin → .java/.kt; Ruby → .rb; plain JS → .js/.mjs/.cjs with no tsconfig.json).
 
-        <checklist>
-          <check>any in signatures/variables</check>
-          <check>double assertion</check>
-          <check>@ts-ignore or unexplained @ts-expect-error</check>
-          <check>unsafe non-null assertion</check>
-          <check>exported function missing return type</check>
-          <check>unknown accessed without guard</check>
-        </checklist>
+          Then apply the matching sub-reviewer below. Name the reviewer in output as
+          "type-safety ({detected language})" so the summary table category is accurate.
 
-        <findings>
-          <finding>HIGH · TYPESCRIPT · {file}:{line} / ✗ any disables type checking / ✓ Replace with real type or unknown + guard</finding>
-          <finding>HIGH · TYPESCRIPT · {file}:{line} / ✗ Double assertion bypasses checker / ✓ Fix upstream type</finding>
-          <finding>HIGH · TYPESCRIPT · {file}:{line} / ✗ Type error suppressed / ✓ Fix root type mismatch or justify</finding>
-          <finding>MEDIUM · TYPESCRIPT · {file}:{line} / ✗ Unsafe non-null assertion / ✓ Add null check</finding>
-          <finding>MEDIUM · TYPESCRIPT · {file}:{line} / ✗ Exported function lacks return type / ✓ Add explicit return type</finding>
-          <finding>HIGH · TYPESCRIPT · {file}:{line} / ✗ unknown accessed without narrowing / ✓ Add type guard</finding>
-        </findings>
+          <sub-reviewer language="TypeScript" output-name="type-safety (TypeScript)">
+            <!-- Dispatched only when ALL_SOURCE_FILES are primarily .ts/.tsx or Flow-typed -->
+            <ponytail-review>
+              <rule>Do not demand elaborate type architecture for local/simple types.</rule>
+              <rule>Prefer inferred internal types when safe; require explicit exported boundaries.</rule>
+              <rule>Reject any, unsafe casts, and unguarded unknown.</rule>
+              <rule>Small type guard beats broad assertion.</rule>
+            </ponytail-review>
+            <checklist>
+              <check>any in signatures/variables</check>
+              <check>double assertion</check>
+              <check>@ts-ignore or unexplained @ts-expect-error</check>
+              <check>unsafe non-null assertion</check>
+              <check>exported function missing return type</check>
+              <check>unknown accessed without guard</check>
+            </checklist>
+            <findings>
+              <finding>HIGH · TYPESCRIPT · {file}:{line} / ✗ any disables type checking / ✓ Replace with real type or unknown + guard</finding>
+              <finding>HIGH · TYPESCRIPT · {file}:{line} / ✗ Double assertion bypasses checker / ✓ Fix upstream type</finding>
+              <finding>HIGH · TYPESCRIPT · {file}:{line} / ✗ Type error suppressed / ✓ Fix root type mismatch or justify</finding>
+              <finding>MEDIUM · TYPESCRIPT · {file}:{line} / ✗ Unsafe non-null assertion / ✓ Add null check</finding>
+              <finding>MEDIUM · TYPESCRIPT · {file}:{line} / ✗ Exported function lacks return type / ✓ Add explicit return type</finding>
+              <finding>HIGH · TYPESCRIPT · {file}:{line} / ✗ unknown accessed without narrowing / ✓ Add type guard</finding>
+            </findings>
+          </sub-reviewer>
+
+          <sub-reviewer language="Python" output-name="type-safety (Python)">
+            <!-- Dispatched when ALL_SOURCE_FILES are primarily .py -->
+            <ponytail-review>
+              <rule>Do not demand type annotations on trivial one-liners or private helpers.</rule>
+              <rule>Require type hints on all public function signatures.</rule>
+              <rule>Reject bare except and unchecked Optional/None access on public API paths.</rule>
+            </ponytail-review>
+            <checklist>
+              <check>public function missing type hints on parameters or return value</check>
+              <check>use of Any from typing without justification</check>
+              <check>bare except: clause (catches BaseException silently)</check>
+              <check>unchecked Optional/None access (obj.attr where obj could be None)</check>
+              <check>mypy/pyright suppression: # type: ignore without explanation</check>
+            </checklist>
+            <findings>
+              <finding>MEDIUM · TYPESAFETY · {file}:{line} / ✗ Public function missing type hints / ✓ Add parameter and return type annotations</finding>
+              <finding>HIGH · TYPESAFETY · {file}:{line} / ✗ Any used without justification / ✓ Replace with concrete type or TypeVar</finding>
+              <finding>HIGH · TYPESAFETY · {file}:{line} / ✗ bare except: silently swallows all exceptions / ✓ Catch specific exception class</finding>
+              <finding>HIGH · TYPESAFETY · {file}:{line} / ✗ Unchecked None access / ✓ Guard with if x is not None or assert</finding>
+              <finding>HIGH · TYPESAFETY · {file}:{line} / ✗ Type error suppressed via # type: ignore / ✓ Fix root type mismatch or add explanation comment</finding>
+            </findings>
+          </sub-reviewer>
+
+          <sub-reviewer language="Go" output-name="type-safety (Go)">
+            <!-- Dispatched when ALL_SOURCE_FILES are primarily .go -->
+            <ponytail-review>
+              <rule>Errors must be handled explicitly; _ = err is almost always wrong.</rule>
+              <rule>Type assertions must use the two-return form unless the type is guaranteed.</rule>
+              <rule>interface{}/any overuse signals a missing design decision.</rule>
+            </ponytail-review>
+            <checklist>
+              <check>ignored errors: _ = err or err discarded without comment</check>
+              <check>unsafe type assertion without ok-check: x.(T) in non-test code</check>
+              <check>interface{} or any overuse where a concrete type is available</check>
+              <check>unchecked nil pointer dereference (method call on potentially nil pointer)</check>
+            </checklist>
+            <findings>
+              <finding>HIGH · TYPESAFETY · {file}:{line} / ✗ Error silently discarded / ✓ Handle or explicitly log and return</finding>
+              <finding>HIGH · TYPESAFETY · {file}:{line} / ✗ Type assertion without ok-check panics on wrong type / ✓ Use x, ok := v.(T); if !ok { ... }</finding>
+              <finding>MEDIUM · TYPESAFETY · {file}:{line} / ✗ interface{}/any used where concrete type possible / ✓ Define a concrete type or interface with methods</finding>
+              <finding>HIGH · TYPESAFETY · {file}:{line} / ✗ Potential nil dereference / ✓ Add nil guard before access</finding>
+            </findings>
+          </sub-reviewer>
+
+          <sub-reviewer language="Rust" output-name="type-safety (Rust)">
+            <!-- Dispatched when ALL_SOURCE_FILES are primarily .rs -->
+            <ponytail-review>
+              <rule>unwrap()/expect() in non-test code must be justified.</rule>
+              <rule>unsafe blocks require a comment explaining the invariant upheld.</rule>
+              <rule>Silently ignored Results compound into hard-to-debug failures.</rule>
+            </ponytail-review>
+            <checklist>
+              <check>unwrap() or expect() in non-test code without justification comment</check>
+              <check>unsafe block without a SAFETY comment explaining the upheld invariant</check>
+              <check>ignored Result via let _ = or without ? or explicit handling</check>
+            </checklist>
+            <findings>
+              <finding>HIGH · TYPESAFETY · {file}:{line} / ✗ unwrap()/expect() in non-test code without justification / ✓ Handle the Err case or add // SAFETY: comment</finding>
+              <finding>HIGH · TYPESAFETY · {file}:{line} / ✗ unsafe block lacks SAFETY comment / ✓ Add // SAFETY: comment explaining the invariant</finding>
+              <finding>HIGH · TYPESAFETY · {file}:{line} / ✗ Result silently discarded / ✓ Propagate with ? or handle explicitly</finding>
+            </findings>
+          </sub-reviewer>
+
+          <sub-reviewer language="Java" output-name="type-safety (Java)">
+            <!-- Dispatched when ALL_SOURCE_FILES are primarily .java -->
+            <ponytail-review>
+              <rule>Raw types erase generic safety — always parameterize.</rule>
+              <rule>Unchecked casts must be preceded by instanceof.</rule>
+              <rule>@SuppressWarnings must carry an explanation comment.</rule>
+            </ponytail-review>
+            <checklist>
+              <check>raw types (List, Map, Set without type parameter)</check>
+              <check>unchecked cast without preceding instanceof check</check>
+              <check>@SuppressWarnings without justification comment</check>
+              <check>nullable method return accessed without null-check</check>
+            </checklist>
+            <findings>
+              <finding>HIGH · TYPESAFETY · {file}:{line} / ✗ Raw type used / ✓ Add generic type parameter</finding>
+              <finding>HIGH · TYPESAFETY · {file}:{line} / ✗ Unchecked cast without instanceof guard / ✓ Add instanceof check before cast</finding>
+              <finding>MEDIUM · TYPESAFETY · {file}:{line} / ✗ @SuppressWarnings without explanation / ✓ Add comment justifying suppression</finding>
+              <finding>HIGH · TYPESAFETY · {file}:{line} / ✗ Nullable access without null-check / ✓ Add null guard or use Optional</finding>
+            </findings>
+          </sub-reviewer>
+
+          <sub-reviewer language="Kotlin" output-name="type-safety (Kotlin)">
+            <!-- Dispatched when ALL_SOURCE_FILES are primarily .kt -->
+            <ponytail-review>
+              <rule>!! is a code smell in non-test Kotlin; handle null explicitly.</rule>
+              <rule>Unchecked casts and @Suppress must be justified.</rule>
+            </ponytail-review>
+            <checklist>
+              <check>!! (non-null assertion) in non-test code without justification</check>
+              <check>unchecked cast (as T) without is T guard</check>
+              <check>@Suppress without explanation comment</check>
+            </checklist>
+            <findings>
+              <finding>HIGH · TYPESAFETY · {file}:{line} / ✗ Unjustified !! forces NullPointerException on null / ✓ Use safe call ?. or explicit null check</finding>
+              <finding>HIGH · TYPESAFETY · {file}:{line} / ✗ Unchecked cast without is-check / ✓ Guard with if (x is T)</finding>
+              <finding>MEDIUM · TYPESAFETY · {file}:{line} / ✗ @Suppress without justification / ✓ Add explanation comment</finding>
+            </findings>
+          </sub-reviewer>
+
+          <sub-reviewer language="Ruby" output-name="type-safety (Ruby)">
+            <!-- Dispatched when ALL_SOURCE_FILES are primarily .rb -->
+            <ponytail-review>
+              <rule>Do not demand Sorbet annotations on trivial private methods or scripts.</rule>
+              <rule>rescue Exception is almost always wrong — flag it without exception.</rule>
+              <rule>method_missing without respond_to_missing? breaks the Ruby protocol — always flag.</rule>
+            </ponytail-review>
+            <dispatch-condition>
+              If the repo uses Sorbet (Gemfile contains sorbet or tapioca, or .sorbet/ exists)
+              or RBS signatures are present: check for missing sig {} blocks on public methods.
+              Otherwise: skip type-hint checks and check only the items below.
+            </dispatch-condition>
+            <checklist>
+              <check>rescue Exception (catches SignalException, SystemExit — almost always wrong)</check>
+              <check>method_missing without respond_to_missing? override</check>
+              <check>public method missing Sorbet sig {} if repo uses Sorbet</check>
+            </checklist>
+            <findings>
+              <finding>HIGH · TYPESAFETY · {file}:{line} / ✗ rescue Exception catches too broadly / ✓ Rescue StandardError or a specific exception class</finding>
+              <finding>MEDIUM · TYPESAFETY · {file}:{line} / ✗ method_missing without respond_to_missing? / ✓ Override respond_to_missing? alongside method_missing</finding>
+              <finding>MEDIUM · TYPESAFETY · {file}:{line} / ✗ Public method missing Sorbet type signature / ✓ Add sig { params(...).returns(...) } block</finding>
+            </findings>
+          </sub-reviewer>
+
+          <sub-reviewer language="JavaScript (plain)" output-name="type-safety (JavaScript)">
+            <!-- Dispatched when primary extension is .js/.mjs/.cjs AND no tsconfig.json exists -->
+            <ponytail-review>
+              <rule>No TypeScript any-style checks — JS has no type system to enforce.</rule>
+              <rule>Check for == vs ===, missing JSDoc on exports if repo convention uses it,
+                    and unchecked null/undefined access on chained calls.</rule>
+            </ponytail-review>
+            <checklist>
+              <check>== instead of === (except intentional null-coalescing == null)</check>
+              <check>exported function missing JSDoc if repo convention uses JSDoc</check>
+              <check>chained property access on value that may be null/undefined without guard</check>
+            </checklist>
+            <findings>
+              <finding>MEDIUM · TYPESAFETY · {file}:{line} / ✗ Loose equality == used / ✓ Use === unless intentionally coercing null/undefined</finding>
+              <finding>LOW · TYPESAFETY · {file}:{line} / ✗ Exported function missing JSDoc / ✓ Add @param and @returns JSDoc comment</finding>
+              <finding>HIGH · TYPESAFETY · {file}:{line} / ✗ Unchecked null/undefined access / ✓ Add guard or use optional chaining ?.</finding>
+            </findings>
+          </sub-reviewer>
+
+          <sub-reviewer language="other" output-name="type-safety ({detected language})">
+            <!-- Dispatched when primary language does not match any sub-reviewer above -->
+            <ponytail-review>
+              <rule>Apply only the generalizable type-safety concerns below.</rule>
+            </ponytail-review>
+            <checklist>
+              <check>suppressed type or lint errors (# type: ignore, @SuppressWarnings, eslint-disable, etc.)</check>
+              <check>unsafe casts or forced type coercions without guard</check>
+              <check>ignored errors (error return discarded, exception caught and swallowed)</check>
+            </checklist>
+            <findings>
+              <finding>HIGH · TYPESAFETY · {file}:{line} / ✗ Type/lint error suppressed without justification / ✓ Fix root cause or add explanation comment</finding>
+              <finding>HIGH · TYPESAFETY · {file}:{line} / ✗ Unsafe cast or forced coercion / ✓ Add runtime type guard before cast</finding>
+              <finding>HIGH · TYPESAFETY · {file}:{line} / ✗ Error silently ignored / ✓ Handle or propagate the error</finding>
+              <finding>INFO · TYPESAFETY · (no file):0 / ✗ No language-specific strictness checklist defined for {detected language} / ✓ Extend prd-review.md reviewer #4 for this language</finding>
+            </findings>
+          </sub-reviewer>
+        </dispatch-logic>
       </reviewer>
 
       <reviewer id="5" name="quality-architecture">
-        <files>ALL_TS_FILES</files>
+        <files>ALL_SOURCE_FILES</files>
 
         <ponytail-review>
           <rule>Prefer deletion over abstraction.</rule>
@@ -282,12 +545,12 @@ cat {prd-folder}/tasks/index.md
             <check>suppression comment</check>
           </quality>
           <architecture>
-            <check>shared component imports module-specific code</check>
-            <check>cross-module imports violate boundaries</check>
-            <check>new PrismaClient outside db singleton</check>
-            <check>API route fetches internal API route</check>
-            <check>client imports server-only module</check>
-            <check>design token defined in component</check>
+            <check>Shared/common component or module imports code that is specific to one feature or domain module</check>
+            <check>Cross-module imports violate the repo's established boundary conventions</check>
+            <check>New DB client instance created outside the project's established DB singleton or connection pool (e.g. new PrismaClient, new mongoose.Connection, creating a new SQLAlchemy engine, opening a new sql.DB, etc.)</check>
+            <check>API handler/route calls another internal API endpoint over HTTP instead of calling the service layer directly</check>
+            <check>Client-side code imports a module marked or known to be server-only (e.g. server-only imports, modules with direct DB/secret access)</check>
+            <check>Design token or global style constant defined inline inside a component instead of the shared design system / token file</check>
           </architecture>
         </checklist>
 
@@ -297,16 +560,16 @@ cat {prd-folder}/tasks/index.md
           <finding>LOW · QUALITY · {file}:{line} / ✗ Repeated literal / ✓ Extract named constant</finding>
           <finding>MEDIUM · QUALITY · {file}:{line} / ✗ Function does too much / ✓ Extract named helper</finding>
           <finding>MEDIUM · QUALITY · {file}:{line} / ✗ Duplicated logic / ✓ Reuse existing helper or extract one</finding>
-          <finding>MEDIUM · QUALITY · {file}:{line} / ✗ ESLint rule disabled / ✓ Fix root issue</finding>
-          <finding>HIGH · ARCHITECTURE · {file}:{line} / ✗ Shared component imports module code / ✓ Invert with prop or move shared logic to lib</finding>
-          <finding>CRITICAL · ARCHITECTURE · {file}:{line} / ✗ New PrismaClient outside db singleton / ✓ Import db singleton</finding>
-          <finding>MEDIUM · ARCHITECTURE · {file}:{line} / ✗ API route calls internal API / ✓ Call service directly</finding>
-          <finding>CRITICAL · ARCHITECTURE · {file}:{line} / ✗ Client imports server-only module / ✓ Move logic server-side/API</finding>
+          <finding>MEDIUM · QUALITY · {file}:{line} / ✗ Lint suppression comment without justification / ✓ Fix root issue or add explanation</finding>
+          <finding>HIGH · ARCHITECTURE · {file}:{line} / ✗ Shared module imports domain-specific code / ✓ Invert dependency — pass via parameter or move shared logic to a neutral location</finding>
+          <finding>CRITICAL · ARCHITECTURE · {file}:{line} / ✗ New DB client instance created outside the project's connection singleton / ✓ Import and use the project's established DB singleton or connection pool</finding>
+          <finding>MEDIUM · ARCHITECTURE · {file}:{line} / ✗ API handler fetches another internal API endpoint over HTTP / ✓ Call the service/domain layer directly</finding>
+          <finding>CRITICAL · ARCHITECTURE · {file}:{line} / ✗ Client-side code imports a server-only module / ✓ Move the logic to the server layer or expose it through an API boundary</finding>
         </findings>
       </reviewer>
 
       <reviewer id="6" name="test-coverage">
-        <files>TEST_FILES + ALL_TS_FILES</files>
+        <files>TEST_FILES + ALL_SOURCE_FILES</files>
 
         <ponytail-review>
           <rule>Do not demand massive test suites for trivial one-liners.</rule>
@@ -350,14 +613,14 @@ cat {prd-folder}/tasks/index.md
       <sort>
         <order>CRITICAL, HIGH, MEDIUM, LOW</order>
         <within>group by CATEGORY</within>
-        <typescript_errors>always first</typescript_errors>
+        <typecheck_errors>always first</typecheck_errors>
       </sort>
     </phase>
 
     <phase id="4" name="output">
       <format>
 ```text
-SEVERITY · CATEGORY · path/to/file.ts:LINE
+SEVERITY · CATEGORY · path/to/file:LINE
   ✗ {problem}
   ✓ {fix}
 ```
@@ -370,7 +633,7 @@ SEVERITY · CATEGORY · path/to/file.ts:LINE
   Spec compliance : {PASS|FAIL — N issues}
   Security        : {PASS|FAIL — N issues}
   Performance     : {PASS|FAIL — N issues}
-  TypeScript      : {PASS|FAIL — N issues}
+  Type safety     : {PASS|FAIL — N issues}
   Code quality    : {PASS|FAIL — N issues}
   Tests           : {PASS|FAIL — N issues}
   Architecture    : {PASS|FAIL — N issues}
@@ -406,7 +669,7 @@ SEVERITY · CATEGORY · path/to/file.ts:LINE
       <rule>No invented findings</rule>
       <rule>File path and line required</rule>
       <rule>Deduplicate before output</rule>
-      <rule>TypeScript errors are CRITICAL</rule>
+      <rule>Typecheck/lint errors are CRITICAL</rule>
       <rule>Ponytail applies to every reviewer</rule>
       <rule>Do not recommend new abstraction unless duplication or boundary pressure is proven</rule>
       <rule>Do not recommend new dependency unless existing code, stdlib, and platform cannot solve it safely</rule>
