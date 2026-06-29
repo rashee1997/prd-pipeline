@@ -160,7 +160,21 @@ git tag --list --sort=-v:refname | head -20
     </phase>
 
     <phase id="2" name="discover-release-conventions">
-      <task>Detect existing changelog, release notes, package metadata, and versioning conventions.</task>
+      <task>Read project context from discovery.md, then detect changelog, release notes, and versioning conventions.</task>
+
+      <read-project-context>
+        Read the `<project_commands>` section from `{prd_folder}/../discovery.md`.
+        Extract `<language>` and `<package_manager>` to know which version manifest to look for:
+        - `javascript` / `typescript` → package.json
+        - `python` → pyproject.toml or setup.py
+        - `rust` → Cargo.toml
+        - `java` / `kotlin` → build.gradle or pom.xml
+        - `go` → go.mod (no dedicated version manifest; use git tags only)
+        - `ruby` → Gemfile / gemspec
+        - `csharp` / `dotnet` → *.csproj
+
+        If discovery.md is absent, fall back to manifest scanning below.
+      </read-project-context>
 
       <steps>
 ```bash
@@ -175,7 +189,7 @@ git log --oneline --decorate -50
         <item>CHANGELOG.md location if exists</item>
         <item>RELEASE_NOTES.md or docs/releases location if exists</item>
         <item>README.md location</item>
-        <item>version manifest location (package.json, pyproject.toml, Cargo.toml, build.gradle, etc.)</item>
+        <item>version manifest location — guided by language from discovery.md (see above)</item>
         <item>current version if a version manifest exists</item>
         <item>latest git tag matching v* or semver-like pattern</item>
         <item>previous release notes/changelog style</item>

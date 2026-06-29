@@ -80,85 +80,13 @@ git diff $(git merge-base HEAD $BASE)...HEAD --name-only
         <step name="static-analysis">
           Resolve the static-analysis/lint/typecheck command using this priority order:
 
-          1. Read {prd-folder}/spec.md, {prd-folder}/tasks/index.md, and any task files for
-             a documented typecheck, build, or lint command (same way prd-implement.md reads
-             "the typecheck command from this task's acceptance criteria"). Use that command.
+          Read the `<project_commands>` section from `{prd-folder}/../discovery.md`
+          (the discovery.md written by /prd-discover in the same PRD folder set).
+          Use the `<typecheck>` field value as the static-analysis command to run.
 
-          2. If no command is documented there, detect the project type from manifest files
-             in the repo root and run the appropriate native check:
-```bash
-# Detect project type and run appropriate check command
-TYPECHECK_CMD=""
-
-# Check manifest files in priority order
-if [ -f "package.json" ]; then
-  # Node/TypeScript project — prefer script from package.json
-  if grep -q '"typecheck"' package.json 2>/dev/null; then
-    RUNNER=$([ -f "bun.lock" ] || [ -f "bun.lockb" ] && echo "bun" || ([ -f "pnpm-lock.yaml" ] && echo "pnpm" || ([ -f "yarn.lock" ] && echo "yarn" || echo "npm")))
-    TYPECHECK_CMD="$RUNNER run typecheck"
-  elif grep -q '"type-check"' package.json 2>/dev/null; then
-    RUNNER=$([ -f "bun.lock" ] || [ -f "bun.lockb" ] && echo "bun" || ([ -f "pnpm-lock.yaml" ] && echo "pnpm" || ([ -f "yarn.lock" ] && echo "yarn" || echo "npm")))
-    TYPECHECK_CMD="$RUNNER run type-check"
-  elif grep -q '"lint"' package.json 2>/dev/null; then
-    RUNNER=$([ -f "bun.lock" ] || [ -f "bun.lockb" ] && echo "bun" || ([ -f "pnpm-lock.yaml" ] && echo "pnpm" || ([ -f "yarn.lock" ] && echo "yarn" || echo "npm")))
-    TYPECHECK_CMD="$RUNNER run lint"
-  elif [ -f "tsconfig.json" ]; then
-    # TypeScript project without a named script — pick the installed runner
-    if [ -f "bun.lock" ] || [ -f "bun.lockb" ]; then
-      TYPECHECK_CMD="bun tsc --noEmit"
-    elif [ -f "pnpm-lock.yaml" ]; then
-      TYPECHECK_CMD="pnpm exec tsc --noEmit"
-    elif [ -f "yarn.lock" ]; then
-      TYPECHECK_CMD="yarn tsc --noEmit"
-    else
-      TYPECHECK_CMD="npx tsc --noEmit"
-    fi
-  fi
-elif [ -f "pyproject.toml" ] || [ -f "setup.py" ] || [ -f "setup.cfg" ]; then
-  # Python project
-  if command -v mypy >/dev/null 2>&1; then
-    TYPECHECK_CMD="mypy ."
-  elif command -v ruff >/dev/null 2>&1; then
-    TYPECHECK_CMD="ruff check ."
-  elif command -v flake8 >/dev/null 2>&1; then
-    TYPECHECK_CMD="flake8 ."
-  fi
-elif [ -f "go.mod" ]; then
-  # Go project
-  if command -v golangci-lint >/dev/null 2>&1; then
-    TYPECHECK_CMD="golangci-lint run"
-  else
-    TYPECHECK_CMD="go vet ./..."
-  fi
-elif [ -f "Cargo.toml" ]; then
-  # Rust project
-  if command -v cargo-clippy >/dev/null 2>&1 || rustup component list --installed 2>/dev/null | grep -q clippy; then
-    TYPECHECK_CMD="cargo clippy -- -D warnings"
-  else
-    TYPECHECK_CMD="cargo check"
-  fi
-elif ls *.csproj 2>/dev/null | head -1 | grep -q '.csproj'; then
-  TYPECHECK_CMD="dotnet build --no-restore"
-elif [ -f "Gemfile" ]; then
-  # Ruby project
-  if grep -q 'sorbet\|tapioca' Gemfile 2>/dev/null || [ -f ".sorbet" ]; then
-    TYPECHECK_CMD="bundle exec srb tc"
-  elif command -v rubocop >/dev/null 2>&1; then
-    TYPECHECK_CMD="bundle exec rubocop --no-color"
-  fi
-fi
-
-if [ -n "$TYPECHECK_CMD" ]; then
-  echo "Typecheck command used: $TYPECHECK_CMD"
-  eval "$TYPECHECK_CMD" 2>&1
-else
-  echo "NO_TYPECHECK_CMD"
-fi
-```
-
-          3. If TYPECHECK_CMD could not be determined (output is "NO_TYPECHECK_CMD"), skip
-             execution and emit this finding:
-             INFO · ENVIRONMENT · (no file):0 / ✗ No typecheck/lint command found for this project / ✓ Document the project's check command in spec.md or a CLAUDE.md-equivalent file
+          If discovery.md is not present or `<typecheck>` is empty, skip execution
+          and emit this finding:
+          INFO · ENVIRONMENT · (no file):0 / ✗ No typecheck/lint command found — discovery.md missing or incomplete / ✓ Run /prd-discover first to populate project_commands
 
           <on-fail>
             Record each error as:
@@ -183,59 +111,19 @@ cat {prd-folder}/tasks/index.md
 
         <step name="bucket-files">
           Using the changed-files list from the detect-base step above (do not re-run git diff),
-          detect framework and language from repo root manifest files, then assign each changed
-          file to the appropriate bucket using the signals below.
+          read `<language>` and `<package_manager>` from the `<project_commands>` section of
+          `{prd-folder}/../discovery.md` to determine framework context. No manifest re-reading needed.
 
-```bash
-# Detect primary framework/language from manifest files
-FRAMEWORK="unknown"
-PRIMARY_EXT=""
-
-if [ -f "package.json" ]; then
-  if grep -qE '"next"' package.json 2>/dev/null; then
-    FRAMEWORK="nextjs"
-  elif grep -qE '"react"' package.json 2>/dev/null; then
-    FRAMEWORK="react"
-  elif grep -qE '"vue"' package.json 2>/dev/null; then
-    FRAMEWORK="vue"
-  elif grep -qE '"svelte"' package.json 2>/dev/null; then
-    FRAMEWORK="svelte"
-  elif grep -qE '"express"|"fastify"|"hapi"|"koa"' package.json 2>/dev/null; then
-    FRAMEWORK="node-server"
-  else
-    FRAMEWORK="node"
-  fi
-  PRIMARY_EXT="ts tsx js jsx mjs"
-  [ -f "tsconfig.json" ] && PRIMARY_EXT="ts tsx"
-elif [ -f "pyproject.toml" ] || [ -f "setup.py" ] || [ -f "setup.cfg" ]; then
-  if grep -qE 'fastapi|starlette' pyproject.toml setup.py setup.cfg 2>/dev/null; then
-    FRAMEWORK="fastapi"
-  elif grep -qE 'django' pyproject.toml setup.py setup.cfg 2>/dev/null; then
-    FRAMEWORK="django"
-  elif grep -qE 'flask' pyproject.toml setup.py setup.cfg 2>/dev/null; then
-    FRAMEWORK="flask"
-  else
-    FRAMEWORK="python"
-  fi
-  PRIMARY_EXT="py"
-elif [ -f "go.mod" ]; then
-  FRAMEWORK="go"
-  PRIMARY_EXT="go"
-elif [ -f "Cargo.toml" ]; then
-  FRAMEWORK="rust"
-  PRIMARY_EXT="rs"
-elif ls *.csproj 2>/dev/null | head -1 | grep -q '.csproj'; then
-  FRAMEWORK="dotnet"
-  PRIMARY_EXT="cs"
-elif [ -f "Gemfile" ]; then
-  FRAMEWORK="ruby"
-  PRIMARY_EXT="rb"
-fi
-echo "Detected framework: $FRAMEWORK  Primary ext: $PRIMARY_EXT"
-```
+          Use `<language>` to select the appropriate bucket rules below:
+          - `typescript` or `javascript` → apply Node/TS signals
+          - `python` → apply Python signals
+          - `go` → apply Go signals
+          - `rust` → apply Rust signals
+          - `csharp` or `dotnet` → apply .NET signals
+          - `ruby` → apply Ruby signals
 
           Bucket each changed file using these language-agnostic signals applied after
-          framework detection. Every bucket that has zero matches must be noted as empty —
+          framework context is established. Every bucket that has zero matches must be noted as empty —
           any reviewer assigned to an empty bucket must self-report PASS with note
           "no applicable files in this change" rather than running with zero files.
 
