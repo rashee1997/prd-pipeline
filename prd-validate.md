@@ -318,8 +318,8 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
       </blocking-if>
 
        <allowed-command-examples>
-         <example>Command based on the project's detected compile, lint, or static-analysis tool from discovery.md (e.g. tsc --noEmit, cargo check, go vet, mypy, pylint)</example>
-         <example>Built from the project's build manifest (package.json, Makefile, pyproject.toml, Cargo.toml, build.gradle, etc.) or language-specific tooling</example>
+         <example>Command from the `&lt;typecheck&gt;` field in discovery.md `&lt;project_commands&gt;` — see language-map in prd-discover.md phase 0.6 for per-language defaults (e.g. tsc --noEmit, cargo check, go vet, mypy)</example>
+         <example>Command from the `&lt;build&gt;` field in discovery.md `&lt;project_commands&gt;` — see language-map in prd-discover.md phase 0.6 for per-language defaults (e.g. cargo build, go build ./..., ./gradlew build)</example>
          <example>grep -r "{name}" src/ - specific symbol/field verification</example>
       </allowed-command-examples>
     </phase>

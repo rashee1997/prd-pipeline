@@ -80,13 +80,11 @@ git diff $(git merge-base HEAD $BASE)...HEAD --name-only
         <step name="static-analysis">
           Resolve the static-analysis/lint/typecheck command using this priority order:
 
-          Read the `<project_commands>` section from `{prd-folder}/../discovery.md`
-          (the discovery.md written by /prd-discover in the same PRD folder set).
+          Read the `<project_commands>` section from `{prd-folder}/../discovery.md`.
           Use the `<typecheck>` field value as the static-analysis command to run.
 
-          If discovery.md is not present or `<typecheck>` is empty, skip execution
-          and emit this finding:
-          INFO · ENVIRONMENT · (no file):0 / ✗ No typecheck/lint command found — discovery.md missing or incomplete / ✓ Run /prd-discover first to populate project_commands
+          Follow the **discovery-read-pattern** defined in prd-discover.md phase 0.6
+          for failure handling if discovery.md is absent or `<typecheck>` is unknown.
 
           <on-fail>
             Record each error as:
@@ -113,14 +111,10 @@ cat {prd-folder}/tasks/index.md
           Using the changed-files list from the detect-base step above (do not re-run git diff),
           read `<language>` and `<package_manager>` from the `<project_commands>` section of
           `{prd-folder}/../discovery.md` to determine framework context. No manifest re-reading needed.
+          Follow the **discovery-read-pattern** in prd-discover.md phase 0.6 for failure handling.
 
-          Use `<language>` to select the appropriate bucket rules below:
-          - `typescript` or `javascript` → apply Node/TS signals
-          - `python` → apply Python signals
-          - `go` → apply Go signals
-          - `rust` → apply Rust signals
-          - `csharp` or `dotnet` → apply .NET signals
-          - `ruby` → apply Ruby signals
+          Use `<language>` (as defined in the `<language-map id="canonical">` in prd-discover.md
+          phase 0.6) to select the appropriate bucket rules below:
 
           Bucket each changed file using these language-agnostic signals applied after
           framework context is established. Every bucket that has zero matches must be noted as empty —

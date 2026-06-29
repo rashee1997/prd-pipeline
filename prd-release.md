@@ -164,16 +164,14 @@ git tag --list --sort=-v:refname | head -20
 
       <read-project-context>
         Read the `<project_commands>` section from `{prd_folder}/../discovery.md`.
-        Extract `<language>` and `<package_manager>` to know which version manifest to look for:
-        - `javascript` / `typescript` → package.json
-        - `python` → pyproject.toml or setup.py
-        - `rust` → Cargo.toml
-        - `java` / `kotlin` → build.gradle or pom.xml
-        - `go` → go.mod (no dedicated version manifest; use git tags only)
-        - `ruby` → Gemfile / gemspec
-        - `csharp` / `dotnet` → *.csproj
+        Extract `<language>` and `<package_manager>`, then consult the
+        `<language-map id="canonical">` in prd-discover.md phase 0.6 to find the
+        correct `<version-manifest>` for this language.
 
-        If discovery.md is absent, fall back to manifest scanning below.
+        Follow the **discovery-read-pattern** in prd-discover.md phase 0.6 for
+        failure handling if discovery.md is absent or fields are unknown.
+        If discovery.md is genuinely absent, fall back to the manifest scanning
+        step below (the `find` command) to locate version files.
       </read-project-context>
 
       <steps>
