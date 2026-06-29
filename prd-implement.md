@@ -220,7 +220,7 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
         <item>modified_files_read if modifying existing files</item>
         <item>symbols_verified if using referenced symbols/types/functions</item>
         <item>auth_validation_error_pattern for API/auth/server mutation tasks</item>
-        <item>database_pattern for DB/seed/Prisma tasks</item>
+        <item>database_pattern for DB/seed/ORM tasks</item>
         <item>test_pattern for test tasks</item>
         <item>ui_pattern for UI tasks</item>
         <item>library_docs if external API behavior is not proven locally</item>
@@ -337,7 +337,7 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
       </symbols>
 
       <security condition="api|auth|permission|token|public API|server action">
-        <step tool="mcp__octocode__search" required="true">Find existing auth, permission, Zod, public route, token, and generic error patterns.</step>
+        <step tool="mcp__octocode__search" required="true">Find existing auth, permission, input-validation, public route, token, and generic error patterns.</step>
         <step tool="mcp__octocode__github_search" condition="unfamiliar security pattern">Validate externally only if local pattern is missing.</step>
       </security>
 
@@ -364,7 +364,7 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
         <require condition="task modifies existing files">modified_files_read present.</require>
         <require condition="symbols/types/functions used">symbols_verified present.</require>
         <require condition="api/auth/server action">auth_validation_error_pattern present.</require>
-        <require condition="database/seed/prisma">database_pattern present.</require>
+        <require condition="database/seed/orm">database_pattern present.</require>
         <require condition="test task">test_pattern present.</require>
         <require condition="UI task">ui_pattern present.</require>
       </gate>

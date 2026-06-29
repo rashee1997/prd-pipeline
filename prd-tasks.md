@@ -303,7 +303,7 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
 ## Human Notes
 
 - **Parallel execution:** To run a layer in parallel, use: `/prd-implement --parallel-layer N`. Only tasks marked `parallel-safe:` with each other will run concurrently. If a task has `parallel-safe: none`, it must run alone.
-- **No lint:** Lint is never run by any agent. Full typecheck/build/test runs only after all parallel subagents complete.
+- **No lint:** Lint is never run by any agent. Full compile/type-check/build/test runs only after all parallel subagents complete.
 - **Targeted tests:** Agents only test files they create/modify. They never run the full test suite.
 ~~~
 

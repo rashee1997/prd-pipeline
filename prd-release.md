@@ -165,7 +165,7 @@ git tag --list --sort=-v:refname | head -20
       <steps>
 ```bash
 ls
-find . -maxdepth 3 \( -iname "CHANGELOG.md" -o -iname "RELEASE_NOTES.md" -o -iname "RELEASES.md" -o -iname "package.json" -o -iname "README.md" \)
+find . -maxdepth 3 \( -iname "CHANGELOG.md" -o -iname "RELEASE_NOTES.md" -o -iname "RELEASES.md" -o -iname "package.json" -o -iname "pyproject.toml" -o -iname "Cargo.toml" -o -iname "build.gradle" -o -iname "README.md" \)
 git tag --list --sort=-v:refname
 git log --oneline --decorate -50
 ```
@@ -186,7 +186,7 @@ git log --oneline --decorate -50
         <step tool="mcp__semble__search" required="true">Find all release-related files, version references, changelog locations, and release scripts using natural-language queries — most token-efficient path.</step>
         <step tool="mcp__semble__find_related" required="true">Find semantically adjacent release patterns (version badges, CI config, release workflows).</step>
         <step tool="mcp__octocode__get_file">
-          Read existing README.md, CHANGELOG.md, RELEASE_NOTES.md, and package.json if they exist.
+          Read existing README.md, CHANGELOG.md, RELEASE_NOTES.md, and any version manifest (package.json, pyproject.toml, Cargo.toml, build.gradle, etc.) if they exist.
         </step>
         <step tool="mcp__octocode__search">
           Search for version badges, release references, changelog links, package version references, and release scripts.
@@ -250,7 +250,7 @@ fi
     </phase>
 
     <phase id="4" name="determine-version">
-      <task>Determine next version using explicit argument, SemVer rules, package.json, tags, and PRD impact.</task>
+      <task>Determine next version using explicit argument, SemVer rules, the project's version manifest (package.json, pyproject.toml, Cargo.toml, etc.), tags, and PRD impact.</task>
 
       <version_sources>
         <source>version manifest (package.json, pyproject.toml, Cargo.toml, etc.) if present</source>
