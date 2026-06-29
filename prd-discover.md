@@ -131,6 +131,60 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
       </evidence-record>
     </phase>
 
+    <phase id="0.6" name="project-tooling-detection" silent="true">
+      <task>Detect project language, test framework, typecheck command, test command, and build command from manifest files. Results are stored in discovery.md for downstream commands to use.</task>
+
+      <principle>All downstream commands (tasks, implement, review, PR, validate, release) read the detected commands from discovery.md. This is the single source of truth for language-specific tooling.</principle>
+
+      <manifest-check-order>
+        <item file="Cargo.toml">Rust → `cargo test`, `cargo check`, `cargo build`</item>
+        <item file="go.mod">Go → `go test ./...`, `go vet ./...`, `go build ./...`</item>
+        <item file="pyproject.toml">Python → `pytest`, `mypy .` (or `pyright`), `python -m build`</item>
+        <item file="setup.py">Python (fallback if no pyproject.toml)</item>
+        <item file="package.json">Check for tsconfig.json → TypeScript or JavaScript. Check devDependencies for test framework: vitest, jest, mocha, ava. Determine package manager from lockfile: bun.lock → bun, pnpm-lock.yaml → pnpm, yarn.lock → yarn, package-lock.json → npm</item>
+        <item file="build.gradle" or="build.gradle.kts">Java/Kotlin (Gradle) → `./gradlew test`, `./gradlew build`</item>
+        <item file="pom.xml">Java (Maven) → `mvn test`, `mvn compile`</item>
+        <item file="mix.exs">Elixir → `mix test`</item>
+        <item file="Gemfile">Ruby → `bundle exec rspec`, `bundle exec rubocop`</item>
+        <item file="go.work" or="go.mod">Go workspace</item>
+        <item file="Cargo.toml">Rust workspace</item>
+        <item file="Makefile">Generic — check for common targets: test, check, build</item>
+      </manifest-check-order>
+
+      <detection-steps>
+        <step tool="Bash">Check project root for manifest files in priority order. Use `test -f` for each manifest. First match determines primary language.</step>
+        <step tool="Bash">If package.json found, read it to extract test script and devDependencies for test framework detection. Check for tsconfig.json to confirm TypeScript.</step>
+        <step tool="Bash">If pyproject.toml found, grep for [tool.pytest.ini_options] to confirm pytest, [tool.mypy] for mypy.</step>
+        <step tool="Bash">If Cargo.toml found, check for [dev-dependencies] test frameworks.</step>
+        <step tool="Bash">Determine test command: check package.json scripts.test, or Cargo.toml for cargo test, or pyproject.toml for pytest. Fallback to language default.</step>
+        <step tool="Bash">Determine typecheck command: tsconfig.json → tsc --noEmit, pyproject.toml with mypy → mypy ., Cargo.toml → cargo check, go.mod → go vet ./...</step>
+        <step tool="Bash">Determine build command: package.json scripts.build, Cargo.toml → cargo build, go.mod → go build ./..., pyproject.toml → python -m build</step>
+        <step tool="Bash">Check lockfiles to determine package manager: bun.lock → bun, pnpm-lock.yaml → pnpm, yarn.lock → yarn, package-lock.json → npm</step>
+      </detection-steps>
+
+      <output>
+        Append the following to discovery.md:
+        ```xml
+        <project_commands>
+          <language>detected language</language>
+          <package_manager>detected package manager or n/a</package_manager>
+          <test_framework>detected test framework</test_framework>
+          <typecheck>detected typecheck command</typecheck>
+          <test>detected test command</test>
+          <build>detected build command</build>
+        </project_commands>
+        ```
+      </output>
+
+      <rules>
+        <rule>Always include the <project_commands> section — every downstream command depends on it.</rule>
+        <rule>If detection fails for any field, set it to "unknown" rather than guessing. The agent at implement time can re-detect.</rule>
+        <rule>Use the package manager when constructing commands (e.g., `npx` for npm, `bun` for bun, `pnpm` for pnpm).</rule>
+        <rule>For test command, prefer the runner directly with file paths (e.g., `npx vitest run`, `pytest`, `cargo test`) rather than the package manager script wrapper. This makes targeted test execution easier.</rule>
+        <rule>If the project has a Makefile with test/check/build targets, prefer those over direct commands.</rule>
+      </rules>
+    </phase>
+
     <phase id="1" name="research" silent="true">
       <task>Understand current system, likely affected areas, and external implementation patterns before Q&A.</task>
 

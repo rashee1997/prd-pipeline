@@ -268,10 +268,10 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
         <step>Reject missing MCP Evidence Log.</step>
       </steps>
       <post-dispatch condition="all subagents returned DONE">
-        <task>Main agent runs memory-intensive validation after parallel subagents complete. All agents run targeted tests only — never full test suite.</task>
-        <step>Bash with timeout 300000: bun tsc --noEmit</step>
-        <step condition="tsc clean">Bash with timeout 300000: bun run build</step>
-        <step>For each subagent's file set, run targeted test: Bash with timeout 120000: <test-command> --timeout 120000 <test-file-paths or test-folder for that task></step>
+        <task>Main agent runs memory-intensive validation after parallel subagents complete. Each task file already has its typecheck/build/test commands baked in by prd-tasks — read them from each task's acceptance criteria.</task>
+        <step>For each completed task, read its acceptance criteria and run the typecheck command with timeout 300000.</step>
+        <step condition="typecheck clean for all">For each completed task, run its build command with timeout 300000.</step>
+        <step>For each completed task, run its targeted test command with timeout 120000 using the task's file paths.</step>
         <step condition="all clean">Bash: git tag layer-{N}-complete</step>
       </post-dispatch>
 
@@ -384,11 +384,11 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
 
     <phase id="8" name="implement">
       <tdd>
-        <phase name="RED">Write tests + stubs for files this task creates/modifies only. Imports resolve. Run targeted test with timeout 120000: `Bash: <test-command> --timeout 120000 <test-file-paths or test-folder>` — test fails for intended reason. NEVER run full test suite or lint.</phase>
+        <phase name="RED">Write tests + stubs for files this task creates/modifies only. Imports resolve. Run the targeted test command from this task's acceptance criteria with timeout 120000 — test fails for intended reason. NEVER run full test suite or lint.</phase>
         <phase name="IMPL">Write only enough implementation to satisfy failing tests.</phase>
-        <phase name="GREEN">Fix failures only. Add no new scope. Run same targeted test with timeout 120000. NEVER run full suite or lint.</phase>
-        <phase name="REFACTOR">Improve structure without behavior changes. Tests stay green — targeted test only.</phase>
-        <phase name="N/A">Implement task and tests together only where task shape requires it. Targeted test with timeout 120000.</phase>
+        <phase name="GREEN">Fix failures only. Add no new scope. Run same targeted test from acceptance criteria with timeout 120000. NEVER run full suite or lint.</phase>
+        <phase name="REFACTOR">Improve structure without behavior changes. Tests stay green — targeted test from acceptance criteria only.</phase>
+        <phase name="N/A">Implement task and tests together only where task shape requires it. Targeted test from acceptance criteria with timeout 120000.</phase>
       </tdd>
 
       <re-anchoring>
@@ -418,8 +418,8 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
     <phase id="9" name="self-review">
       <checks>
         <check>MCP Evidence Log complete.</check>
-        <check>Bash with timeout 300000: bun tsc --noEmit</check>
-        <check>Bash with timeout 120000: <test-command> --timeout 120000 <test-file-paths or test-folder> — NEVER run full test suite, build, or lint.</check>
+        <check>Bash with timeout 300000: run the typecheck command from this task's acceptance criteria</check>
+        <check>Bash with timeout 120000: run the test command from this task's acceptance criteria with the task's file paths — NEVER run full test suite, build, or lint.</check>
         <check>Every instructed file created/modified.</check>
         <check>No files outside task scope touched.</check>
         <check>No any, TODO, @ts-ignore, console.log, skipped tests, disabled rules.</check>
@@ -439,7 +439,7 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
 ```bash
 git add {explicit task implementation file paths only}
 git status --short
-bun tsc --noEmit --timeout 300000
+{the typecheck command from this task's acceptance criteria}
 git commit -m "{type}({scope}): {imperative summary}
 Task: {TASK-ID}
 TDD: {RED|IMPL|GREEN|REFACTOR|N/A}"
@@ -495,7 +495,7 @@ git commit -m "chore tasks: mark {TASK-ID} complete"
         {actual acceptance output}
 
         TypeScript Check:
-        {actual tsc output}
+        {actual typecheck output}
 
         Security & Quality:
         - Zero any: ✅
@@ -546,9 +546,9 @@ git commit -m "chore tasks: mark {TASK-ID} complete"
       <rule>Never use any.</rule>
       <rule>Never invent a pattern without evidence.</rule>
       <rule>Never run lint — lint is forbidden for all agents.</rule>
-      <rule>tsc must pass before commit with timeout 300000.</rule>
+      <rule>Typecheck must pass before commit with timeout 300000. Use the typecheck command from the task file's acceptance criteria.</rule>
       <rule>All agents (main and sub) may run test commands but ONLY targeted to test file paths or test folder paths for files they created/modified. NEVER run full test suite — full suite is main-agent only after all parallel subagents complete, and even then only as targeted tests per task set.</rule>
-      <rule>Test commands must always include timeout 120000 minimum. Do not hardcode `bun test` — use the project's test command (e.g., `npx jest`, `bun test`, `npm test`) with file/folder paths.</rule>
+      <rule>Test commands must always include timeout 120000 minimum. Use the test command from the task file's acceptance criteria with specific file/folder paths — never run the test runner without path restrictions.</rule>
       <rule>Acceptance check must pass before marking complete.</rule>
       <rule>RED tests fail for intended reason, not import errors.</rule>
       <rule>IMPL does only what tests require.</rule>

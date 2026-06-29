@@ -391,7 +391,7 @@ method: "{Standard|TDD}"
   <item>All security requirements verified.</item>
   <item>All blast-radius regression checks pass.</item>
   <item>All unit/integration tests pass.</item>
-  <item>bun tsc --noEmit has zero errors.</item>
+  <item>Typecheck has zero errors.</item>
   <item>No existing test regressions.</item>
   <item condition="enhancement">Frozen contract tests pass at every checkpoint.</item>
   <item condition="tdd">Every implementation step has a preceding RED test step.</item>
@@ -486,7 +486,7 @@ Step X → Step Y → Done
 - [ ] All blast-radius regression checks pass
 - [ ] All unit tests pass
 - [ ] All integration tests pass
-- [ ] `bun tsc --noEmit` has zero errors
+- [ ] Typecheck passes with zero errors
 - [ ] No existing test regressions
 - [ ] Enhancement only: frozen contract tests pass
 - [ ] TDD only: each implementation step had a preceding RED test

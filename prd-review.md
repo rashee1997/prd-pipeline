@@ -279,7 +279,7 @@ cat {prd-folder}/tasks/index.md
             <check>repeated magic literals</check>
             <check>function body over 40 lines</check>
             <check>duplicate logic</check>
-            <check>eslint-disable</check>
+            <check>suppression comment</check>
           </quality>
           <architecture>
             <check>shared component imports module-specific code</check>

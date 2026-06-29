@@ -221,6 +221,10 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
       <path>{prd-folder}/tasks/</path>
       <create>Bash: mkdir -p {prd-folder}/tasks</create>
 
+      <resolve-commands>
+        Read discovery.md's <project_commands> section to get the actual typecheck, test, and build commands for this project. Use these commands when writing the completion checklist, acceptance criteria, and commit instructions below.
+      </resolve-commands>
+
       <index_template>
 ~~~md
 # TODO: {Feature Name}
@@ -284,9 +288,9 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
 ## Completion Checklist
 
 - [ ] `/prd-validate ./index.md` passes
-- [ ] `bun tsc --noEmit` — zero errors
-- [ ] `bun test` — full suite green
-- [ ] `bun run build` — production build passes
+- [ ] `{typecheck command from discovery.md}` — zero errors
+- [ ] `{test command from discovery.md}` — full suite green
+- [ ] `{build command from discovery.md}` — production build passes
 - [ ] {feature-specific check}
 
 ## Updating index.md
@@ -438,7 +442,7 @@ Done when:
 - [ ] MCP Evidence Log is complete
 - [ ] {specific condition}
 - [ ] {specific condition}
-- [ ] `bun tsc --noEmit` — zero errors
+- [ ] `{typecheck command from discovery.md}` — zero errors
 </acceptance>
 
 <commit>
@@ -452,7 +456,7 @@ TDD: {RED|IMPL|GREEN|REFACTOR|N/A}"
 Pre-commit:
 - MCP Evidence Log complete
 - acceptance green
-- tsc clean
+- typecheck clean
 - only task files staged
 - never use `git add .`
 - never use `git add -A`
@@ -541,15 +545,15 @@ Steps:
 <acceptance>
 Run:
 ~~~bash
-{full test command}
-bun tsc --noEmit
-grep -r "{deprecated symbol}" src/ --include="*.ts" --include="*.tsx"
+{full test command from discovery.md}
+{typecheck command from discovery.md}
+~~~
 ~~~
 
 Done when:
 - [ ] full test suite passes
-- [ ] TypeScript clean
-- [ ] grep returns zero deprecated symbol results
+- [ ] typecheck clean
+- [ ] confirm deprecated symbol no longer referenced
 - [ ] team notified
 </acceptance>
 

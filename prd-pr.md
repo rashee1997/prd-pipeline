@@ -1,5 +1,5 @@
 ---
-description: "PRD Step 7/7 — Creates PR after tasks, validation, implementation, review, tsc, and tests are complete."
+description: "PRD Step 7/7 — Creates PR after tasks, validation, implementation, review, typecheck, and tests are complete."
 argument-hint: "<target branch optional — defaults to repo default/main>"
 allowed-tools: Bash, mcp__semble__search, mcp__semble__find_related
 ---
@@ -146,16 +146,17 @@ cat {prd-folder}/tasks/validation.md
       </step>
 
       <step name="final-verification">
+        <task>Read a completed task file to get the typecheck and test commands baked into its acceptance criteria. Run those commands to verify everything still passes before creating the PR.</task>
 ```bash
-bun tsc --noEmit 2>&1 | head -30
-bun test 2>&1 | tail -20
+{typecheck command from a completed task file's acceptance criteria} 2>&1 | head -30
+{test command from a completed task file's acceptance criteria} 2>&1 | tail -20
 ```
 
-        <if condition="tsc or tests fail">
+        <if condition="typecheck or tests fail">
           <output>
             ⛔ Final verification failed.
 
-            Fix TypeScript/test failures before opening PR.
+            Fix failures before opening PR.
           </output>
           <stop/>
         </if>
@@ -379,8 +380,8 @@ git push -u origin "$BRANCH" || git push origin "$BRANCH"
 How to verify:
 
 ```bash
-bun test
-bun tsc --noEmit
+{test command from a completed task file's acceptance criteria}
+{typecheck command from a completed task file's acceptance criteria}
 ```
 
 ---
@@ -417,8 +418,8 @@ bun tsc --noEmit
 
 - [x] `/prd-validate` passed
 - [x] `/prd-review` passed with zero blocking findings
-- [x] `bun tsc --noEmit` — zero errors
-- [x] `bun test` — all tests passing
+- [x] Typecheck passes — zero errors
+- [x] All tests pass
 - [x] All tasks marked complete in `tasks/index.md`
 - [x] No `any`, no `@ts-ignore`, no TODO comments
 - [x] Inputs validated where needed

@@ -317,14 +317,10 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
         <condition>Acceptance cannot detect failure of the task's core behavior.</condition>
       </blocking-if>
 
-      <allowed-command-examples>
-        <example>bun tsc --noEmit</example>
-        <example>npx tsc --noEmit</example>
-        <example>bun test</example>
-        <example>npx jest path/to/test.ts --no-coverage</example>
-        <example>bun run build</example>
-        <example>bun run lint</example>
-        <example>grep -r "{symbol}" src/</example>
+       <allowed-command-examples>
+         <example>Command example based on the project's detected typecheck, test, or build commands from discovery.md</example>
+         <example>Builting from the project's package.json scripts or language-specific tooling</example>
+         <example>grep -r "{name}" src/ - specific symbol/field verification</example>
       </allowed-command-examples>
     </phase>
 
