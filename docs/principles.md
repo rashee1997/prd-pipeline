@@ -67,7 +67,7 @@ The system is never lazy about:
 
 ## Semble-First Research
 
-`mcp__semble` (semantic code search) is the preferred tool for code discovery — it is 100x more token-efficient than regex/grep. When available, all research phases should call `mcp__semble__search` before falling back to regex-based search. If semble is not installed, the agent uses its own native search capabilities.
+`mcp__semble` is mandatory for all code discovery — it is 100x more token-efficient than regex/grep. All research phases must call `mcp__semble__search` before any other MCP tool. This applies to every command in the pipeline.
 
 ## When To Use This
 
