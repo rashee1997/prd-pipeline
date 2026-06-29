@@ -61,7 +61,7 @@ allowed-tools: Bash, mcp__serena, mcp__octocode, mcp__semble
   <flow>
 
     <phase id="1" name="gather-context">
-      <task>Collect changed files, typecheck/lint errors, PRD/spec context, and file buckets.</task>
+      <task>Collect changed files, static analysis/lint errors (or typecheck errors if the project has a type-checker), PRD/spec context, and file buckets.</task>
 
       <steps>
         <step name="semantic-discovery">
@@ -77,8 +77,8 @@ git diff $(git merge-base HEAD $BASE)...HEAD --name-only
 ```
         </step>
 
-        <step name="typecheck">
-          Resolve the typecheck/lint command using this priority order:
+        <step name="static-analysis">
+          Resolve the static-analysis/lint/typecheck command using this priority order:
 
           1. Read {prd-folder}/spec.md, {prd-folder}/tasks/index.md, and any task files for
              a documented typecheck, build, or lint command (same way prd-implement.md reads
@@ -430,7 +430,7 @@ echo "Detected framework: $FRAMEWORK  Primary ext: $PRIMARY_EXT"
 
         <findings>
           <finding>HIGH · PERFORMANCE · {file}:{line} / ✗ N+1 query in loop / ✓ Batch into a single query with an IN clause or the ORM's batch API (e.g. Prisma findMany where id in ids, SQLAlchemy in_(), Go sqlx.In, etc.)</finding>
-          <finding>HIGH · PERFORMANCE · {file}:{line} / ✗ Unbounded collection query — no limit / ✓ Add pagination or a default limit using the ORM/query-builder's limit/take/LIMIT clause</finding>
+          <finding>HIGH · PERFORMANCE · {file}:{line} / ✗ Unbounded collection query — no limit / ✓ Add pagination or a default limit using the ORM/query-builder's equivalent: LIMIT in SQL, limit() in most ORMs, take in Prisma, offset/limit in SQLAlchemy, Limit in Go query builders</finding>
           <finding>MEDIUM · PERFORMANCE · {file}:{line} / ✗ Query fetches unused columns / ✓ Project only required fields using SELECT / ORM select() / GraphQL field selection</finding>
           <finding>MEDIUM · PERFORMANCE · {file}:{line} / ✗ Independent queries run sequentially / ✓ Run concurrently — Promise.all in JS, asyncio.gather in Python, goroutines in Go, join/rayon in Rust</finding>
           <finding>HIGH · PERFORMANCE · {file}:{line} / ✗ Filtered field lacks a DB index / ✓ Add an index on {field} in the schema/migration file</finding>
