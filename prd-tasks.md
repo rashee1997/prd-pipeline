@@ -1,7 +1,7 @@
 ---
-description: "PRD Step 4/7 — Convert plan.md into self-contained task files + TODO index. Run /prd-validate before /prd-implement."
+description: "PRD Step 4/9 — Convert plan.md into self-contained task files + TODO index. Run /prd-validate before /prd-implement."
 argument-hint: "<path to plan.md>"
-allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
+allowed-tools: mcp__semble, mcp__serena, mcp__octocode, mcp__context7, Bash
 ---
 
 <command name="/prd-tasks">
@@ -27,7 +27,7 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
       <item>Split if context exceeds 600 words or task touches unrelated concerns.</item>
       <item>Every task must include MCP requirements and MCP Evidence Log requirement.</item>
       <item>After tasks are generated, implementation is blocked until /prd-validate passes.</item>
-      <item priority="critical">mcp__semble is MANDATORY for all task context refresh — it is 100x more token-efficient than octocode/serena for finding files and code. Call mcp__semble__search before every mcp__octocode__search or mcp__serena__find_symbol.</item>
+      <item priority="critical">mcp__semble is MANDATORY for all task context refresh — call mcp__semble__search before any mcp__octocode__localSearchCode or mcp__serena__find_symbol. See context-refresh phase 2.</item>
     </rules>
   </system>
 
@@ -103,15 +103,13 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
       <principle>Collect minimum sufficient MCP-backed context per task.</principle>
 
       <for-each-plan-step>
-        <step tool="mcp__serena__get_symbol_info">
-          Get current exact signature for every function/type the task calls, implements, or modifies.
-        </step>
+        <step tool="mcp__serena__find_symbol" include_info="true">Get current exact signature for every function/type the task calls, implements, or modifies.</step>
 
-        <step tool="mcp__octocode__get_file">
+        <step tool="mcp__octocode__localGetFileContent">
           Read one closest reference implementation per task type and any existing file the task modifies.
         </step>
 
-        <step tool="mcp__octocode__search">
+        <step tool="mcp__octocode__localSearchCode">
           Find local patterns for auth, validation, DB, route, UI, test, seed, or config work as applicable.
         </step>
 
@@ -125,6 +123,11 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
         <step tool="mcp__context7" optional="true">
           Use only when external library behavior is not proven by local code.
         </step>
+
+        <external-version-check required="true" condition="plan.md or spec references external libraries">
+          <step tool="mcp__octocode__packageSearch">Re-confirm external dependency versions are current. If spec's pinned version is critically outdated, record discrepancy.</step>
+          <step tool="mcp__context7__query-docs">Re-verify external API names resolve against current docs.</step>
+        </external-version-check>
 
         <extract>
           <item>5-15 relevant code lines</item>
@@ -367,10 +370,10 @@ Exact signatures:
   <tool name="mcp__semble__search">PRIMARY — find code by concept, natural-language query, most token-efficient path</tool>
   <tool name="mcp__semble__find_related">PRIMARY — find semantically adjacent code once a file is found</tool>
   <tool name="mcp__serena__find_symbol">symbols, functions, types, signatures, exported APIs</tool>
-  <tool name="mcp__serena__get_symbol_info">current signature and symbol details</tool>
-  <tool name="mcp__serena__get_related_symbols">callers, frozen contracts, deletions, refactors</tool>
-  <tool name="mcp__octocode__search">local code patterns and file-level examples</tool>
-  <tool name="mcp__octocode__get_file">read existing files this task modifies</tool>
+  <tool name="mcp__serena__find_symbol">current signature and symbol details (use include_info=true)</tool>
+  <tool name="mcp__serena__find_referencing_symbols">callers, frozen contracts, deletions, refactors</tool>
+  <tool name="mcp__octocode__localSearchCode">local code patterns and file-level examples</tool>
+  <tool name="mcp__octocode__localGetFileContent">read existing files this task modifies</tool>
   <tool name="mcp__context7">external library docs only when local code is insufficient</tool>
 </preferred_tools>
 
@@ -516,8 +519,8 @@ Cutover criteria:
   <item name="frozen_contracts_verified">Verify frozen contracts still pass.</item>
 </required_evidence>
 <preferred_tools>
-  <tool name="mcp__serena__get_related_symbols">callers and references</tool>
-  <tool name="mcp__octocode__search">deprecated pattern search</tool>
+  <tool name="mcp__serena__find_referencing_symbols">callers and references</tool>
+  <tool name="mcp__octocode__localSearchCode">deprecated pattern search</tool>
   <tool name="mcp__octocode__get_file">read files to modify/delete</tool>
 </preferred_tools>
 <gate>Do not remove deprecated implementation if MCP evidence is incomplete.</gate>
@@ -601,7 +604,7 @@ DONE | DONE_WITH_CONCERNS | BLOCKED | MCP_EVIDENCE_MISSING
       <rule>Every task must be self-contained.</rule>
       <rule>No task may require reading plan.md, PRD, spec, or another task to start.</rule>
       <rule>Every task must include an mcp_requirements block.</rule>
-      <rule>mcp__semble is mandatory for all task context refresh — call mcp__semble__search before mcp__octocode__search or mcp__serena__find_symbol. Most token-efficient path.</rule>
+      <rule>mcp__semble is mandatory — call mcp__semble__search before mcp__octocode__localSearchCode or mcp__serena__find_symbol.</rule>
       <rule>Every task must require MCP Evidence Log before implementation.</rule>
       <rule>Every task must forbid Bash cat/grep/sed as first-line implementation research when MCP is available.</rule>
       <rule>Every task acceptance must include MCP Evidence Log completion.</rule>

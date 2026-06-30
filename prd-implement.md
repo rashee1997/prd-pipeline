@@ -1,7 +1,7 @@
 ---
-description: "PRD Step 5/7 — Implements validated task file(s), enforces MCP research, ensures feature branch, commits code, and updates tasks/index.md."
+description: "PRD Step 5/9 — Implements validated task file(s), enforces MCP research, ensures feature branch, commits code, and updates tasks/index.md."
 argument-hint: "<TASK-ID | path/to/tasks/TASK-X-XX.md | multiple task paths | --parallel-layer N>"
-allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
+allowed-tools: mcp__semble, mcp__serena, mcp__octocode, mcp__context7, Task, Bash
 ---
 
 <command name="/prd-implement">
@@ -25,7 +25,7 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
       <item>Never switch/create branches with uncommitted changes.</item>
       <item>Never use unsafe type constructs (any, @ts-ignore, #noqa, pylint: disable, etc.), TODO, skipped tests, debug-print statements (console.log, print, fmt.Println, etc.), git add ., or git add -A.</item>
       <item>Reuse nearest existing pattern before inventing a new one.</item>
-      <item priority="critical">mcp__semble is MANDATORY for all implementation research — it is 100x more token-efficient than octocode/serena for finding files and code. You MUST call mcp__semble__search before every mcp__octocode__search or mcp__serena__find_symbol. No implementation research may start without at least one mcp__semble__search call. Never use Bash grep/find for code discovery.</item>
+      <item priority="critical">mcp__semble is MANDATORY for all implementation research — call mcp__semble__search before any mcp__octocode__localSearchCode or mcp__serena__find_symbol. See semantic-discovery in phase 7.</item>
       <item>Security, auth, validation, data-loss paths, and acceptance checks are mandatory.</item>
       <item>Update tasks/index.md after every completed task.</item>
     </rules>
@@ -260,7 +260,7 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
       </rules>
 
       <subagent_contract>
-        Use MCP before implementation. Return MCP Evidence Log. Use Bash only for git and targeted tests. NEVER run build, lint, or full test suite — only targeted test commands for files this task touches. Use explicit git add paths. Stop with NEEDS_CONTEXT if MCP evidence is missing.
+        Subagents have no MCP access. Use the semble CLI (`semble search ...`, `semble find_related ...`) and octocode CLI fallback for research. Record CLI evidence in MCP Evidence Log. Use Bash for git and targeted tests. NEVER run build, lint, or full test suite — only targeted test commands for files this task touches. Use explicit git add paths. Stop with NEEDS_CONTEXT if CLI evidence is insufficient.
       </subagent_contract>
 
       <steps>
@@ -322,41 +322,48 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
 
       <reference>
         <step tool="mcp__serena__find_symbol" required="true">Find nearest existing implementation for this task type.</step>
-        <step tool="mcp__octocode__search" required="true">Search nearby file-level patterns if symbol lookup is insufficient.</step>
+        <step tool="mcp__octocode__localSearchCode" required="true">Search nearby file-level patterns if symbol lookup is insufficient.</step>
         <extract>import order, naming, auth, validation, errors, DB pattern, response shape, test style, UI style</extract>
       </reference>
 
       <modified-files condition="task modifies existing files">
-        <step tool="mcp__octocode__get_file" required="true">Read every existing file this task modifies.</step>
+        <step tool="mcp__octocode__localGetFileContent" required="true">Read every existing file this task modifies.</step>
       </modified-files>
 
       <symbols condition="task references symbols/types/functions">
         <step tool="mcp__serena__find_symbol" required="true">Confirm location and signature.</step>
-        <step tool="mcp__serena__get_symbol_info" required="true">Confirm exported shape/current usage.</step>
-        <step tool="mcp__serena__get_related_symbols" condition="frozen contract|delete|refactor">Confirm callers/references.</step>
+        <step tool="mcp__serena__find_symbol" include_info="true">Confirm exported shape/current usage.</step>
+        <step tool="mcp__serena__find_referencing_symbols" condition="frozen contract|delete|refactor">Confirm callers/references.</step>
       </symbols>
 
       <security condition="api|auth|permission|token|public API|server action">
-        <step tool="mcp__octocode__search" required="true">Find existing auth, permission, input-validation, public route, token, and generic error patterns.</step>
-        <step tool="mcp__octocode__github_search" condition="unfamiliar security pattern">Validate externally only if local pattern is missing.</step>
+        <step tool="mcp__octocode__localSearchCode" required="true">Find existing auth, permission, input-validation, public route, token, and generic error patterns.</step>
+        <step tool="mcp__octocode__githubSearchCode" condition="unfamiliar security pattern">Validate externally only if local pattern is missing.</step>
       </security>
 
       <database condition="database|seed|orm|migration">
-        <step tool="mcp__octocode__search" required="true">Find existing ORM/database client import, query, transaction, bulk-delete, seed, and mock patterns.</step>
+        <step tool="mcp__octocode__localSearchCode" required="true">Find existing ORM/database client import, query, transaction, bulk-delete, seed, and mock patterns.</step>
       </database>
 
       <tests condition="test|RED|GREEN|spec">
-        <step tool="mcp__octocode__search" required="true">Find existing test style, mock helpers, assertion patterns, and runner conventions.</step>
+        <step tool="mcp__octocode__localSearchCode" required="true">Find existing test style, mock helpers, assertion patterns, and runner conventions.</step>
       </tests>
 
       <ui condition="UI_TASK|component|view|template">
-        <step tool="mcp__octocode__search" required="true">Find nearest component, notification/feedback, loading, disabled, and token patterns.</step>
+        <step tool="mcp__octocode__localSearchCode" required="true">Find nearest component, notification/feedback, loading, disabled, and token patterns.</step>
         <step>Bash fallback only for generated/local design artifact discovery: cat DESIGN.md 2>/dev/null || find . \( -name "tokens.*" -o -name "theme.*" -o -name "design-tokens.*" \) | head -5</step>
       </ui>
 
       <library_docs condition="external library API not locally proven">
-        <step tool="mcp__context7__get_library_docs" required="true">Verify exact library API.</step>
+        <step tool="mcp__context7__query-docs" required="true">Verify exact library API.</step>
       </library_docs>
+
+      <external-version-check required="true" condition="task references external libraries or new dependencies">
+        <principle>Before writing code against any external library/API/SDK, confirm the version is current and the API shape matches both the spec and the live registry.</principle>
+        <step tool="mcp__octocode__packageSearch">Confirm the pinned version in spec is not critically outdated. If the latest major version differs, flag as a discrepancy.</step>
+        <step tool="mcp__context7__query-docs">Re-confirm the exact API method/prop/option names the code will use.</step>
+        <require>If version is critically outdated (major behind), stop and flag. Do not implement against an outdated API.</require>
+      </external-version-check>
 
       <gate>
         <require>MCP Evidence Log has semantic discovery (semble) entry.</require>
@@ -466,16 +473,7 @@ git commit -m "chore tasks: mark {TASK-ID} complete"
 
         Branch: {TARGET_BRANCH}
 
-        MCP Evidence Log:
-        - Pattern found: {tool} → {file/symbol} → {reuse}
-        - Modified files read: {tool} → {files}
-        - Symbols/types verified: {tool} → {symbols|n/a}
-        - Auth/security/validation: {tool} → {evidence|n/a}
-        - Database pattern: {tool} → {evidence|n/a}
-        - Test pattern: {tool} → {evidence|n/a}
-        - UI pattern: {tool} → {evidence|n/a}
-        - Library docs: {tool} → {library/API|n/a}
-        - Bash fallback: {yes/no; reason}
+        - MCP Evidence Log: see phase 4 template
 
         TDD Phase: {RED|IMPL|GREEN|REFACTOR|N/A}
 
@@ -538,14 +536,14 @@ git commit -m "chore tasks: mark {TASK-ID} complete"
       <rule>Never use Bash grep/find/cat as first-line code research when MCP is available.</rule>
       <rule>Parallel subagents must receive and obey MCP contract.</rule>
       <rule>Reject subagent output that lacks MCP Evidence Log.</rule>
-      <rule>mcp__semble is mandatory — call mcp__semble__search before every mcp__octocode__search or mcp__serena__find_symbol. It is the most token-efficient path to relevant code.</rule>
+      <rule>mcp__semble is mandatory — call mcp__semble__search before mcp__octocode__localSearchCode or mcp__serena__find_symbol.</rule>
     </mcp_rules>
 
     <hard_rules>
       <rule>Never implement before validation gate, branch setup, and MCP research.</rule>
       <rule>Never use unsafe/untyped constructs (TypeScript any, Python untyped Any, etc.).</rule>
       <rule>Never invent a pattern without evidence.</rule>
-      <rule>Never run lint — lint is forbidden for all agents.</rule>
+      <rule>Agents do not run lint mid-task. Lint runs as a final gate per project policy.</rule>
       <rule>Static analysis / type-check / compile must pass before commit with timeout 300000. Use the static-analysis command from the task file's acceptance criteria.</rule>
       <rule>All agents (main and sub) may run test commands but ONLY targeted to test file paths or test folder paths for files they created/modified. NEVER run full test suite — full suite is main-agent only after all parallel subagents complete, and even then only as targeted tests per task set.</rule>
       <rule>Test commands must always include timeout 120000 minimum. Use the test command from the task file's acceptance criteria with specific file/folder paths — never run the test runner without path restrictions.</rule>

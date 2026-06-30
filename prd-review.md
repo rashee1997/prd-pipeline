@@ -1,7 +1,7 @@
 ---
-description: "PRD Step 6/7 — Parallel code review with Ponytail discipline. Dispatches specialist reviewers, merges findings, deduplicates, sorts by severity."
+description: "PRD Step 6/9 — Parallel code review with Ponytail discipline. Dispatches specialist reviewers, merges findings, deduplicates, sorts by severity."
 argument-hint: "<path to prd-folder>"
-allowed-tools: Bash, mcp__serena, mcp__octocode, mcp__semble
+allowed-tools: mcp__semble, mcp__serena, mcp__octocode, Task, Bash
 ---
 
 <command name="/prd-review">
@@ -22,7 +22,7 @@ allowed-tools: Bash, mcp__serena, mcp__octocode, mcp__semble
       <item>No padding</item>
       <item>No invented findings</item>
       <item>No finding without file and line</item>
-      <item priority="critical">mcp__semble is MANDATORY for all review code discovery — use mcp__semble__search to find all relevant files before reading them. It is the most token-efficient path to finding changed code by concept.</item>
+      <item priority="critical">mcp__semble is MANDATORY for all review code discovery — use mcp__semble__search to find relevant files by concept before reading them. See semantic-discovery in phase 1.</item>
       <item>Deduplicate before output</item>
       <item>CRITICAL and HIGH must block PR</item>
     </rules>
@@ -208,7 +208,8 @@ cat {prd-folder}/tasks/index.md
       <task>Run six specialist reviewers in parallel.</task>
 
       <common-agent-contract>
-        You are a specialist code reviewer. Read only your assigned files.
+        You are a specialist code reviewer. Subagents have no MCP access — use Bash (grep, cat, etc.) for code inspection.
+        Read only your assigned files.
         Output findings only. No praise. No padding.
         Format:
         SEVERITY · CATEGORY · path/to/file:LINE / ✗ problem / ✓ fix
@@ -326,202 +327,36 @@ cat {prd-folder}/tasks/index.md
         <files>ALL_SOURCE_FILES</files>
 
         <dispatch-logic>
-          Before running this reviewer, detect the primary language of ALL_SOURCE_FILES
-          (TypeScript/Flow → ts/tsx/flow extensions; Python → .py; Go → .go; Rust → .rs;
-          Java/Kotlin → .java/.kt; Ruby → .rb; plain JS → .js/.mjs/.cjs with no tsconfig.json).
+  Before running this reviewer, detect the primary language of ALL_SOURCE_FILES from file extensions.
+  Then apply a generic type-safety review using the checklist below.
 
-          Then apply the matching sub-reviewer below. Name the reviewer in output as
-          "type-safety ({detected language})" so the summary table category is accurate.
+  <ponytail-review>
+    <rule>Do not demand elaborate type architecture for local/simple types.</rule>
+    <rule>Prefer inferred internal types when safe; require explicit exported boundaries.</rule>
+    <rule>Reject any/unsafe casts/coercions and unguarded null/unknown access.</rule>
+    <rule>Small type guard beats broad assertion.</rule>
+    <rule>Error returns must never be silently discarded.</rule>
+  </ponytail-review>
 
-          <sub-reviewer language="TypeScript" output-name="type-safety (TypeScript)">
-            <!-- Dispatched only when ALL_SOURCE_FILES are primarily .ts/.tsx or Flow-typed -->
-            <ponytail-review>
-              <rule>Do not demand elaborate type architecture for local/simple types.</rule>
-              <rule>Prefer inferred internal types when safe; require explicit exported boundaries.</rule>
-              <rule>Reject any, unsafe casts, and unguarded unknown.</rule>
-              <rule>Small type guard beats broad assertion.</rule>
-            </ponytail-review>
-            <checklist>
-              <check>any in signatures/variables</check>
-              <check>double assertion</check>
-              <check>@ts-ignore or unexplained @ts-expect-error</check>
-              <check>unsafe non-null assertion</check>
-              <check>exported function missing return type</check>
-              <check>unknown accessed without guard</check>
-            </checklist>
-            <findings>
-              <finding>HIGH · TYPESCRIPT · {file}:{line} / ✗ any disables type checking / ✓ Replace with real type or unknown + guard</finding>
-              <finding>HIGH · TYPESCRIPT · {file}:{line} / ✗ Double assertion bypasses checker / ✓ Fix upstream type</finding>
-              <finding>HIGH · TYPESCRIPT · {file}:{line} / ✗ Type error suppressed / ✓ Fix root type mismatch or justify</finding>
-              <finding>MEDIUM · TYPESCRIPT · {file}:{line} / ✗ Unsafe non-null assertion / ✓ Add null check</finding>
-              <finding>MEDIUM · TYPESCRIPT · {file}:{line} / ✗ Exported function lacks return type / ✓ Add explicit return type</finding>
-              <finding>HIGH · TYPESCRIPT · {file}:{line} / ✗ unknown accessed without narrowing / ✓ Add type guard</finding>
-            </findings>
-          </sub-reviewer>
+  <checklist>
+    <check>Type/lint errors suppressed without justification (@ts-ignore, # type: ignore, @SuppressWarnings, etc.)</check>
+    <check>Unsafe casts or forced coercions without guard</check>
+    <check>Error returns silently discarded</check>
+    <check>any/interface{}/untyped usage where concrete type is available</check>
+    <check>Exported functions missing return type / type hints</check>
+    <check>Unchecked null/optional access</check>
+  </checklist>
 
-          <sub-reviewer language="Python" output-name="type-safety (Python)">
-            <!-- Dispatched when ALL_SOURCE_FILES are primarily .py -->
-            <ponytail-review>
-              <rule>Do not demand type annotations on trivial one-liners or private helpers.</rule>
-              <rule>Require type hints on all public function signatures.</rule>
-              <rule>Reject bare except and unchecked Optional/None access on public API paths.</rule>
-            </ponytail-review>
-            <checklist>
-              <check>public function missing type hints on parameters or return value</check>
-              <check>use of Any from typing without justification</check>
-              <check>bare except: clause (catches BaseException silently)</check>
-              <check>unchecked Optional/None access (obj.attr where obj could be None)</check>
-              <check>mypy/pyright suppression: # type: ignore without explanation</check>
-            </checklist>
-            <findings>
-              <finding>MEDIUM · TYPESAFETY · {file}:{line} / ✗ Public function missing type hints / ✓ Add parameter and return type annotations</finding>
-              <finding>HIGH · TYPESAFETY · {file}:{line} / ✗ Any used without justification / ✓ Replace with concrete type or TypeVar</finding>
-              <finding>HIGH · TYPESAFETY · {file}:{line} / ✗ bare except: silently swallows all exceptions / ✓ Catch specific exception class</finding>
-              <finding>HIGH · TYPESAFETY · {file}:{line} / ✗ Unchecked None access / ✓ Guard with if x is not None or assert</finding>
-              <finding>HIGH · TYPESAFETY · {file}:{line} / ✗ Type error suppressed via # type: ignore / ✓ Fix root type mismatch or add explanation comment</finding>
-            </findings>
-          </sub-reviewer>
-
-          <sub-reviewer language="Go" output-name="type-safety (Go)">
-            <!-- Dispatched when ALL_SOURCE_FILES are primarily .go -->
-            <ponytail-review>
-              <rule>Errors must be handled explicitly; _ = err is almost always wrong.</rule>
-              <rule>Type assertions must use the two-return form unless the type is guaranteed.</rule>
-              <rule>interface{}/any overuse signals a missing design decision.</rule>
-            </ponytail-review>
-            <checklist>
-              <check>ignored errors: _ = err or err discarded without comment</check>
-              <check>unsafe type assertion without ok-check: x.(T) in non-test code</check>
-              <check>interface{} or any overuse where a concrete type is available</check>
-              <check>unchecked nil pointer dereference (method call on potentially nil pointer)</check>
-            </checklist>
-            <findings>
-              <finding>HIGH · TYPESAFETY · {file}:{line} / ✗ Error silently discarded / ✓ Handle or explicitly log and return</finding>
-              <finding>HIGH · TYPESAFETY · {file}:{line} / ✗ Type assertion without ok-check panics on wrong type / ✓ Use x, ok := v.(T); if !ok { ... }</finding>
-              <finding>MEDIUM · TYPESAFETY · {file}:{line} / ✗ interface{}/any used where concrete type possible / ✓ Define a concrete type or interface with methods</finding>
-              <finding>HIGH · TYPESAFETY · {file}:{line} / ✗ Potential nil dereference / ✓ Add nil guard before access</finding>
-            </findings>
-          </sub-reviewer>
-
-          <sub-reviewer language="Rust" output-name="type-safety (Rust)">
-            <!-- Dispatched when ALL_SOURCE_FILES are primarily .rs -->
-            <ponytail-review>
-              <rule>unwrap()/expect() in non-test code must be justified.</rule>
-              <rule>unsafe blocks require a comment explaining the invariant upheld.</rule>
-              <rule>Silently ignored Results compound into hard-to-debug failures.</rule>
-            </ponytail-review>
-            <checklist>
-              <check>unwrap() or expect() in non-test code without justification comment</check>
-              <check>unsafe block without a SAFETY comment explaining the upheld invariant</check>
-              <check>ignored Result via let _ = or without ? or explicit handling</check>
-            </checklist>
-            <findings>
-              <finding>HIGH · TYPESAFETY · {file}:{line} / ✗ unwrap()/expect() in non-test code without justification / ✓ Handle the Err case or add // SAFETY: comment</finding>
-              <finding>HIGH · TYPESAFETY · {file}:{line} / ✗ unsafe block lacks SAFETY comment / ✓ Add // SAFETY: comment explaining the invariant</finding>
-              <finding>HIGH · TYPESAFETY · {file}:{line} / ✗ Result silently discarded / ✓ Propagate with ? or handle explicitly</finding>
-            </findings>
-          </sub-reviewer>
-
-          <sub-reviewer language="Java" output-name="type-safety (Java)">
-            <!-- Dispatched when ALL_SOURCE_FILES are primarily .java -->
-            <ponytail-review>
-              <rule>Raw types erase generic safety — always parameterize.</rule>
-              <rule>Unchecked casts must be preceded by instanceof.</rule>
-              <rule>@SuppressWarnings must carry an explanation comment.</rule>
-            </ponytail-review>
-            <checklist>
-              <check>raw types (List, Map, Set without type parameter)</check>
-              <check>unchecked cast without preceding instanceof check</check>
-              <check>@SuppressWarnings without justification comment</check>
-              <check>nullable method return accessed without null-check</check>
-            </checklist>
-            <findings>
-              <finding>HIGH · TYPESAFETY · {file}:{line} / ✗ Raw type used / ✓ Add generic type parameter</finding>
-              <finding>HIGH · TYPESAFETY · {file}:{line} / ✗ Unchecked cast without instanceof guard / ✓ Add instanceof check before cast</finding>
-              <finding>MEDIUM · TYPESAFETY · {file}:{line} / ✗ @SuppressWarnings without explanation / ✓ Add comment justifying suppression</finding>
-              <finding>HIGH · TYPESAFETY · {file}:{line} / ✗ Nullable access without null-check / ✓ Add null guard or use Optional</finding>
-            </findings>
-          </sub-reviewer>
-
-          <sub-reviewer language="Kotlin" output-name="type-safety (Kotlin)">
-            <!-- Dispatched when ALL_SOURCE_FILES are primarily .kt -->
-            <ponytail-review>
-              <rule>!! is a code smell in non-test Kotlin; handle null explicitly.</rule>
-              <rule>Unchecked casts and @Suppress must be justified.</rule>
-            </ponytail-review>
-            <checklist>
-              <check>!! (non-null assertion) in non-test code without justification</check>
-              <check>unchecked cast (as T) without is T guard</check>
-              <check>@Suppress without explanation comment</check>
-            </checklist>
-            <findings>
-              <finding>HIGH · TYPESAFETY · {file}:{line} / ✗ Unjustified !! forces NullPointerException on null / ✓ Use safe call ?. or explicit null check</finding>
-              <finding>HIGH · TYPESAFETY · {file}:{line} / ✗ Unchecked cast without is-check / ✓ Guard with if (x is T)</finding>
-              <finding>MEDIUM · TYPESAFETY · {file}:{line} / ✗ @Suppress without justification / ✓ Add explanation comment</finding>
-            </findings>
-          </sub-reviewer>
-
-          <sub-reviewer language="Ruby" output-name="type-safety (Ruby)">
-            <!-- Dispatched when ALL_SOURCE_FILES are primarily .rb -->
-            <ponytail-review>
-              <rule>Do not demand Sorbet annotations on trivial private methods or scripts.</rule>
-              <rule>rescue Exception is almost always wrong — flag it without exception.</rule>
-              <rule>method_missing without respond_to_missing? breaks the Ruby protocol — always flag.</rule>
-            </ponytail-review>
-            <dispatch-condition>
-              If the repo uses Sorbet (Gemfile contains sorbet or tapioca, or .sorbet/ exists)
-              or RBS signatures are present: check for missing sig {} blocks on public methods.
-              Otherwise: skip type-hint checks and check only the items below.
-            </dispatch-condition>
-            <checklist>
-              <check>rescue Exception (catches SignalException, SystemExit — almost always wrong)</check>
-              <check>method_missing without respond_to_missing? override</check>
-              <check>public method missing Sorbet sig {} if repo uses Sorbet</check>
-            </checklist>
-            <findings>
-              <finding>HIGH · TYPESAFETY · {file}:{line} / ✗ rescue Exception catches too broadly / ✓ Rescue StandardError or a specific exception class</finding>
-              <finding>MEDIUM · TYPESAFETY · {file}:{line} / ✗ method_missing without respond_to_missing? / ✓ Override respond_to_missing? alongside method_missing</finding>
-              <finding>MEDIUM · TYPESAFETY · {file}:{line} / ✗ Public method missing Sorbet type signature / ✓ Add sig { params(...).returns(...) } block</finding>
-            </findings>
-          </sub-reviewer>
-
-          <sub-reviewer language="JavaScript (plain)" output-name="type-safety (JavaScript)">
-            <!-- Dispatched when primary extension is .js/.mjs/.cjs AND no tsconfig.json exists -->
-            <ponytail-review>
-              <rule>No TypeScript any-style checks — JS has no type system to enforce.</rule>
-              <rule>Check for == vs ===, missing JSDoc on exports if repo convention uses it,
-                    and unchecked null/undefined access on chained calls.</rule>
-            </ponytail-review>
-            <checklist>
-              <check>== instead of === (except intentional null-coalescing == null)</check>
-              <check>exported function missing JSDoc if repo convention uses JSDoc</check>
-              <check>chained property access on value that may be null/undefined without guard</check>
-            </checklist>
-            <findings>
-              <finding>MEDIUM · TYPESAFETY · {file}:{line} / ✗ Loose equality == used / ✓ Use === unless intentionally coercing null/undefined</finding>
-              <finding>LOW · TYPESAFETY · {file}:{line} / ✗ Exported function missing JSDoc / ✓ Add @param and @returns JSDoc comment</finding>
-              <finding>HIGH · TYPESAFETY · {file}:{line} / ✗ Unchecked null/undefined access / ✓ Add guard or use optional chaining ?.</finding>
-            </findings>
-          </sub-reviewer>
-
-          <sub-reviewer language="other" output-name="type-safety ({detected language})">
-            <!-- Dispatched when primary language does not match any sub-reviewer above -->
-            <ponytail-review>
-              <rule>Apply only the generalizable type-safety concerns below.</rule>
-            </ponytail-review>
-            <checklist>
-              <check>suppressed type or lint errors (# type: ignore, @SuppressWarnings, eslint-disable, etc.)</check>
-              <check>unsafe casts or forced type coercions without guard</check>
-              <check>ignored errors (error return discarded, exception caught and swallowed)</check>
-            </checklist>
-            <findings>
-              <finding>HIGH · TYPESAFETY · {file}:{line} / ✗ Type/lint error suppressed without justification / ✓ Fix root cause or add explanation comment</finding>
-              <finding>HIGH · TYPESAFETY · {file}:{line} / ✗ Unsafe cast or forced coercion / ✓ Add runtime type guard before cast</finding>
-              <finding>HIGH · TYPESAFETY · {file}:{line} / ✗ Error silently ignored / ✓ Handle or propagate the error</finding>
-              <finding>INFO · TYPESAFETY · (no file):0 / ✗ No language-specific strictness checklist defined for {detected language} / ✓ Extend prd-review.md reviewer #4 for this language</finding>
-            </findings>
-          </sub-reviewer>
-        </dispatch-logic>
+  <findings>
+    <finding>HIGH · TYPESAFETY · {file}:{line} / ✗ Type/lint error suppressed without justification / ✓ Fix root cause or add explanation comment</finding>
+    <finding>HIGH · TYPESAFETY · {file}:{line} / ✗ Unsafe cast or forced coercion / ✓ Add runtime type guard before cast</finding>
+    <finding>HIGH · TYPESAFETY · {file}:{line} / ✗ Error silently ignored / ✓ Handle or propagate the error</finding>
+    <finding>MEDIUM · TYPESAFETY · {file}:{line} / ✗ any/interface{}/untyped used where concrete type available / ✓ Use concrete type or defined interface</finding>
+    <finding>MEDIUM · TYPESAFETY · {file}:{line} / ✗ Exported API missing type signature / ✓ Add explicit return/parameter types</finding>
+    <finding>HIGH · TYPESAFETY · {file}:{line} / ✗ Unchecked null/optional access / ✓ Add guard or use safe access pattern</finding>
+    <finding>INFO · TYPESAFETY · (no file):0 / ✗ Language-specific type-safety checklist not defined for {detected language} / ✓ Extend prd-review.md reviewer #4 for this language</finding>
+  </findings>
+</dispatch-logic>
       </reviewer>
 
       <reviewer id="5" name="quality-architecture">
@@ -673,7 +508,7 @@ SEVERITY · CATEGORY · path/to/file:LINE
       <rule>Ponytail applies to every reviewer</rule>
       <rule>Do not recommend new abstraction unless duplication or boundary pressure is proven</rule>
       <rule>Do not recommend new dependency unless existing code, stdlib, and platform cannot solve it safely</rule>
-      <rule>mcp__semble is mandatory for all review code discovery — call mcp__semble__search to find relevant files by concept before reading them. Most token-efficient path.</rule>
+      <rule>mcp__semble is mandatory for review code discovery — call mcp__semble__search to find relevant files by concept before reading them.</rule>
     </hard-rules>
   </control>
 

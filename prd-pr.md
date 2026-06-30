@@ -1,7 +1,7 @@
 ---
-description: "PRD Step 7/7 — Creates PR after tasks, validation, implementation, review, compile/type checks, and tests are complete."
+description: "PRD Step 7/9 — Creates PR after tasks, validation, implementation, review, compile/type checks, and tests are complete."
 argument-hint: "<target branch optional — defaults to repo default/main>"
-allowed-tools: Bash, mcp__semble__search, mcp__semble__find_related
+allowed-tools: mcp__semble, Bash
 ---
 
 <command name="/prd-pr">

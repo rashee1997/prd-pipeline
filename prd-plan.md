@@ -1,7 +1,7 @@
 ---
-description: "PRD Step 3/7 — Reads PRD + spec, validates blast radius against live code, then produces dependency-first plan.md. Supports --tdd."
+description: "PRD Step 3/9 — Reads PRD + spec, validates blast radius against live code, then produces dependency-first plan.md. Supports --tdd."
 argument-hint: "<path/to/prd.md> <path/to/spec.md> [--tdd]"
-allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
+allowed-tools: mcp__semble, mcp__serena, mcp__octocode, mcp__context7, Bash
 ---
 
 <command name="/prd-plan">
@@ -26,7 +26,7 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
       <item>Flag spec/codebase discrepancies; never plan around them silently.</item>
       <item priority="critical">Treat every name in prd.md/spec.md as an unverified CLAIM until re-confirmed against the live codebase in Phase 2 — specs can go stale or contain a slipped-through hallucination. No file path/symbol/column/route/prop may appear in plan.md unless backed by a tool result from this session; an unconfirmed spec claim is a discrepancy to record, not a name to "correct" by guessing the closest match.</item>
       <item priority="critical">Any [UNVERIFIED] marker already in spec.md must be resolved or explicitly carried into plan.md's discrepancies — never silently dropped or quietly assigned a guessed real name.</item>
-      <item priority="critical">mcp__semble is MANDATORY for all codebase validation — it is 100x more token-efficient than octocode/serena for finding files and code. You MUST call mcp__semble__search before every mcp__octocode__search or mcp__serena__find_symbol. No codebase validation may start without at least one mcp__semble__search call.</item>
+      <item priority="critical">mcp__semble is MANDATORY for all codebase validation — call mcp__semble__search before any mcp__octocode__localSearchCode or mcp__serena__find_symbol. See semantic-discovery in live-codebase-validation phase.</item>
     </rules>
   </system>
 
@@ -100,54 +100,62 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
         <step tool="mcp__serena__find_symbol">
           Confirm each existing file/function/type/component/model named in spec exists, using its exact name — don't accept the first "close enough" hit.
         </step>
-        <step tool="mcp__serena__get_related_symbols">
+        <step tool="mcp__serena__find_referencing_symbols">
           For changed symbols, confirm callers and downstream dependents.
         </step>
       </referenced-symbols>
 
       <path-conflict-check>
-        <step tool="mcp__octocode__get_file_tree">
+        <step tool="mcp__octocode__localViewStructure">
           Confirm proposed new files do not already exist and paths fit project structure. New-file paths in plan.md must sit inside directories confirmed to exist.
         </step>
-        <step tool="mcp__octocode__search">
+        <step tool="mcp__octocode__localSearchCode">
           Search for recently added overlapping implementation or naming conflicts.
         </step>
       </path-conflict-check>
 
       <blast-radius-validation>
         <dimension name="api">
-          <step tool="mcp__octocode__search">Validate routes/contracts identified in spec.</step>
+          <step tool="mcp__octocode__localSearchCode">Validate routes/contracts identified in spec.</step>
         </dimension>
         <dimension name="database">
-          <step tool="mcp__octocode__search">Validate models/tables/migrations/queries column-by-column against the actual schema file, not spec's description of it.</step>
+          <step tool="mcp__octocode__localSearchCode">Validate models/tables/migrations/queries column-by-column against the actual schema file, not spec's description of it.</step>
         </dimension>
         <dimension name="auth-security">
-          <step tool="mcp__octocode__search">Validate auth/permission/token/rate-limit patterns.</step>
+          <step tool="mcp__octocode__localSearchCode">Validate auth/permission/token/rate-limit patterns.</step>
         </dimension>
         <dimension name="ui">
-          <step tool="mcp__octocode__search">Validate referenced UI components/pages/hooks.</step>
+          <step tool="mcp__octocode__localSearchCode">Validate referenced UI components/pages/hooks.</step>
         </dimension>
         <dimension name="tests">
-          <step tool="mcp__octocode__search">Validate existing tests and test gaps.</step>
-          <step tool="mcp__octocode__get_file">Read closest tests when tasking depends on exact mock style.</step>
+          <step tool="mcp__octocode__localSearchCode">Validate existing tests and test gaps.</step>
+          <step tool="mcp__octocode__localGetFileContent">Read closest tests when tasking depends on exact mock style.</step>
         </dimension>
       </blast-radius-validation>
 
       <compatibility-audit condition="feature_mode=enhancement">
-        <step tool="mcp__serena__get_related_symbols">
+        <step tool="mcp__serena__find_referencing_symbols">
           For each frozen contract, identify all current callers and dependents.
         </step>
-        <step tool="mcp__octocode__get_file">
+        <step tool="mcp__octocode__localGetFileContent">
           Read existing tests for frozen contracts where available.
         </step>
         <output>Compatibility Risk Register</output>
       </compatibility-audit>
 
       <external-check optional="true">
-        <step tool="mcp__context7__get_library_docs">
+        <step tool="mcp__context7__query-docs">
           Re-check library APIs only if plan depends on version-sensitive method details.
         </step>
       </external-check>
+
+      <external-version-check required="true" condition="spec names external libraries or new dependencies">
+        <principle>Every external library/API/SDK named in the spec must be re-verified against the live manifest and current package registry — specs can go stale.</principle>
+        <step tool="mcp__octocode__packageSearch">For each external dependency: resolve exact latest version and check the pinned version in spec is not critically outdated.</step>
+        <step tool="mcp__context7__query-docs">Re-confirm external API names still resolve against current docs.</step>
+        <record>For each external name: name | spec pinned version | latest version | context7 doc confirmation | manifest match</record>
+        <require>If spec pins a version that is critically outdated (major version behind), flag as a discrepancy. If external API name doesn't resolve, flag as blocking discrepancy.</require>
+      </external-version-check>
 
       <semantic-discovery>
         <step tool="mcp__semble__search" required="true">Find conceptually related code, patterns, and files using natural-language query — this is the most token-efficient path. Use 2-3 diverse queries.</step>
@@ -155,7 +163,7 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
       </semantic-discovery>
 
       <tdd-inventory condition="tdd_mode=true">
-        <step tool="mcp__octocode__get_file">
+        <step tool="mcp__octocode__localGetFileContent">
           Read closest existing test file for each major unit/route/component.
         </step>
         <step tool="mcp__serena__find_symbol">
@@ -512,7 +520,7 @@ Step X → Step Y → Done
       <rule>Do not schedule UI before stable API/data contracts unless mocked intentionally.</rule>
       <rule>Do not plan implementation before regression safety net for enhancements.</rule>
       <rule>No file path/symbol/field name enters plan.md unless "confirmed" or explicitly [NEW]/[UNVERIFIED] in the verification ledger — a plan step is a build instruction, so an unverified name here becomes hallucinated code one step later.</rule>
-      <rule>mcp__semble is mandatory for all codebase validation. Call mcp__semble__search before every mcp__octocode__search or mcp__serena__find_symbol. It is the most token-efficient path to finding relevant code.</rule>
+      <rule>Enforce the semantic-discovery protocol: mcp__semble__search before mcp__octocode__localSearchCode or mcp__serena__find_symbol.</rule>
     </critical>
   </control>
 

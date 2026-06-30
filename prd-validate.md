@@ -1,7 +1,7 @@
 ---
-description: "PRD Step 4a/7 — Validate generated task files before implementation. Research-backed gate for task context, dependencies, paths, acceptance checks, blast radius, compatibility, and parallel safety."
+description: "PRD Step 4a/9 — Validate generated task files before implementation. Research-backed gate for task context, dependencies, paths, acceptance checks, blast radius, compatibility, and parallel safety."
 argument-hint: "<path/to/tasks/index.md | path/to/tasks/>"
-allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
+allowed-tools: mcp__semble, mcp__serena, mcp__octocode, mcp__context7, Bash
 ---
 
 <command name="/prd-validate">
@@ -29,7 +29,7 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
       <item>Every acceptance check must be concrete and runnable.</item>
       <item>Every file path must be real, proposed-new, or explicitly justified.</item>
       <item>Blocking issue count controls final status and readiness.</item>
-      <item priority="critical">mcp__semble is MANDATORY for all validation codebase research — it is 100x more token-efficient than octocode/serena for finding files and code. Call mcp__semble__search before every mcp__octocode__search or mcp__serena__find_symbol.</item>
+      <item priority="critical">mcp__semble is MANDATORY for all validation codebase research — call mcp__semble__search before any mcp__octocode__localSearchCode or mcp__serena__find_symbol. See semantic-validation in phase 6.</item>
     </rules>
   </system>
 
@@ -249,16 +249,14 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
         <step tool="mcp__serena__find_symbol">
           Confirm existing functions, types, components, handlers, and exported symbols named in tasks.
         </step>
-        <step tool="mcp__serena__get_symbol_info">
-          Confirm signatures embedded in task context still match live code.
-        </step>
-        <step tool="mcp__serena__get_related_symbols">
+        <step tool="mcp__serena__find_symbol" include_info="true">Confirm signatures embedded in task context still match live code.</step>
+        <step tool="mcp__serena__find_referencing_symbols">
           For frozen contracts or deleted symbols, confirm callers and downstream dependencies.
         </step>
       </referenced-symbols>
 
       <referenced-files>
-        <step tool="mcp__octocode__get_file">
+        <step tool="mcp__octocode__localGetFileContent">
           Read files each task modifies or deletes to confirm existence, insertion points, and current snippets.
         </step>
       </referenced-files>
@@ -271,7 +269,7 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
       </file-path-checks>
 
       <pattern-validation>
-        <step tool="mcp__octocode__search">
+        <step tool="mcp__octocode__localSearchCode">
           Verify referenced local patterns exist, such as auth helpers, DB imports, test mock patterns, response shapes, or UI toast patterns.
         </step>
       </pattern-validation>
@@ -282,10 +280,20 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
       </semantic-validation>
 
       <library-validation optional="true">
-        <step tool="mcp__context7__get_library_docs">
+        <step tool="mcp__context7__query-docs">
           Verify library APIs only when task acceptance or implementation depends on exact external API behavior.
         </step>
       </library-validation>
+
+      <external-version-check required="true" condition="spec or tasks name external libraries">
+        <principle>Every dependency named in the spec must exist in the manifest at the pinned version (or be flagged NEW-TO-INSTALL). External API names must still resolve via Context7.</principle>
+        <step tool="mcp__octocode__packageSearch">For each external dependency: confirm spec's pinned version is not critically outdated and matches the manifest.</step>
+        <step tool="mcp__context7__query-docs">Re-confirm external API names resolve against current docs.</step>
+        <blocking-if>
+          <condition>Spec pins a version that is critically outdated (major version behind).</condition>
+          <condition>External API name referenced in tasks does not resolve in current docs.</condition>
+        </blocking-if>
+      </external-version-check>
 
       <bash-targeted-checks>
         <step>Bash: test -e {existing file paths}</step>
@@ -592,7 +600,7 @@ spec_file: "{path/to/spec.md}"
       <rule>Do not accept MODIFY for a missing file unless the task also creates it.</rule>
       <rule>Do not accept parallel-safe claims when file sets overlap.</rule>
       <rule>Enhancement: do not allow implementation without compatibility gate.</rule>
-      <rule>mcp__semble is mandatory for all validation codebase research — call mcp__semble__search before mcp__octocode__search or mcp__serena__find_symbol. Most token-efficient path.</rule>
+      <rule>mcp__semble is mandatory for all validation — call mcp__semble__search before mcp__octocode__localSearchCode or mcp__serena__find_symbol.</rule>
     </hard_rules>
   </control>
 

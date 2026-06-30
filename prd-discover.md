@@ -1,7 +1,7 @@
 ---
-description: "PRD Step 1/7 — Research-first Socratic discovery. Assesses scope, researches codebase + external patterns, performs blast-radius-aware Q&A, and saves discovery.md. Run /prd-write after."
+description: "PRD Step 1/9 — Research-first Socratic discovery. Assesses scope, researches codebase + external patterns, performs blast-radius-aware Q&A, and saves discovery.md. Run /prd-write after."
 argument-hint: "<feature idea — e.g. external reviewer approval flow>"
-allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
+allowed-tools: mcp__semble, mcp__serena, mcp__octocode, mcp__context7, Bash
 ---
 
 <command name="/prd-discover">
@@ -24,7 +24,7 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
       <item>Do not write requirements in this command.</item>
       <item>Maximum 12 questions. If more are needed, flag scope as too large.</item>
       <item priority="critical">No name (model/table/function/route/prop/field) may appear anywhere in output unless copy-pasted from a tool result in this session. Unconfirmed names → label `UNVERIFIED:` and ask the user instead of stating as fact. If a tool finds no match, say so — never substitute a similar-looking name.</item>
-      <item priority="critical">mcp__semble is MANDATORY for all code discovery — it is 100x more token-efficient than octocode/serena for finding files and code. You MUST call mcp__semble__search before every mcp__octocode__search or mcp__serena__find_symbol call. No code research may begin without at least one mcp__semble__search call. Never use Bash grep/find for code discovery that semble can do in ~1.5ms.</item>
+      <item priority="critical">mcp__semble is MANDATORY for all code discovery — call mcp__semble__search before any mcp__octocode__localSearchCode or mcp__serena__find_symbol. See semantic-search in research phase.</item>
     </rules>
   </system>
 
@@ -277,7 +277,7 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
       </verification-protocol>
 
       <project-overview>
-        <step tool="mcp__serena__get_overview">
+        <step tool="mcp__serena__get_symbols_overview">
           Record framework, language, routing, DB layer, auth, modules, tests, shared services, conventions.
         </step>
       </project-overview>
@@ -286,13 +286,13 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
         <step tool="mcp__serena__find_symbol">
           Search symbols related to feature domain and synonyms.
         </step>
-        <step tool="mcp__serena__get_related_symbols">
+        <step tool="mcp__serena__find_referencing_symbols">
           For relevant symbols, identify callers, callees, dependencies, and adjacent modules.
         </step>
-        <step tool="mcp__octocode__search">
+        <step tool="mcp__octocode__localSearchCode">
           Search exact feature terms, synonyms, domain nouns, route names, model names, UI terms, and workflow terms.
         </step>
-        <step tool="mcp__octocode__get_file">
+        <step tool="mcp__octocode__localGetFileContent">
           Read the 2-5 most relevant files, prioritizing files that already implement similar workflows.
         </step>
       </related-code>
@@ -307,13 +307,13 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
       </semantic-search>
 
       <external-pattern-research>
-        <step tool="mcp__context7__resolve_library_id">
+        <step tool="mcp__context7__resolve-library-id">
           Resolve relevant libraries only if the feature clearly involves them.
         </step>
-        <step tool="mcp__context7__get_library_docs">
+        <step tool="mcp__context7__query-docs">
           Fetch targeted docs for relevant APIs and patterns.
         </step>
-        <step tool="mcp__octocode__github_search">
+        <step tool="mcp__octocode__githubSearchCode">
           Find 2-3 real implementations for non-trivial domain patterns.
         </step>
       </external-pattern-research>
@@ -689,7 +689,7 @@ mode: "{new|enhancement}"
       <rule>Do not ask generic questions before code-grounded questions.</rule>
       <rule>Do not omit external pattern findings if they affect architecture.</rule>
       <rule>Never state a name that isn't in the verified-names list; mark UNVERIFIED instead of guessing or "fixing" spelling/casing.</rule>
-      <rule>mcp__semble is mandatory for every research phase. Call mcp__semble__search first before any other MCP code research tool — it is the most token-efficient path to finding relevant code. Skip only if semble is truly unavailable; if skipped, record the reason in output.</rule>
+      <rule>Enforce the semantic-research protocol: mcp__semble__search before mcp__octocode__localSearchCode or mcp__serena__find_symbol.</rule>
     </critical>
   </control>
 

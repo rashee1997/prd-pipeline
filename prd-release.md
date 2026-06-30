@@ -1,7 +1,7 @@
 ---
-description: "PRD Step 8 — Release manager. Builds or updates changelog/release notes from current PRD + git history, bumps version, updates README/package metadata, commits, tags, and creates a GitHub Release."
+description: "PRD Step 8/9 — Release manager. Builds or updates changelog/release notes from current PRD + git history, bumps version, updates README/package metadata, commits, tags, and creates a GitHub Release."
 argument-hint: "<prd-folder> [--major|--minor|--patch|--prerelease <id>] [--draft] [--target <branch>] [--no-gh-release]"
-allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
+allowed-tools: mcp__semble, mcp__serena, mcp__octocode, mcp__context7, Bash
 ---
 
 <command name="/prd-release">
@@ -29,7 +29,7 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
       <item>Never use git add . or git add -A.</item>
       <item>Release commit must stage explicit files only.</item>
       <item>Tag must match version: v{version}.</item>
-      <item priority="critical">mcp__semble is MANDATORY for all release-related code research — it is 100x more token-efficient than octocode/serena for finding files and code. Call mcp__semble__search before every mcp__octocode__search or mcp__serena__find_symbol in research phases.</item>
+      <item priority="critical">mcp__semble is MANDATORY for all release-related code research — call mcp__semble__search before any mcp__octocode__localSearchCode or mcp__serena__find_symbol. See semantic-research in discover-release-conventions phase.</item>
     </rules>
   </system>
 
@@ -197,10 +197,10 @@ git log --oneline --decorate -50
       <mcp-research>
         <step tool="mcp__semble__search" required="true">Find all release-related files, version references, changelog locations, and release scripts using natural-language queries — most token-efficient path.</step>
         <step tool="mcp__semble__find_related" required="true">Find semantically adjacent release patterns (version badges, CI config, release workflows).</step>
-        <step tool="mcp__octocode__get_file">
+        <step tool="mcp__octocode__localGetFileContent">
           Read existing README.md, CHANGELOG.md, RELEASE_NOTES.md, and any version manifest (package.json, pyproject.toml, Cargo.toml, build.gradle, etc.) if they exist.
         </step>
-        <step tool="mcp__octocode__search">
+        <step tool="mcp__octocode__localSearchCode">
           Search for version badges, release references, changelog links, package version references, and release scripts.
         </step>
       </mcp-research>
@@ -439,6 +439,9 @@ The format is based on Keep a Changelog, and this project uses Semantic Versioni
       <if condition="package.json exists">
         <steps>
 ```bash
+# Guard: only use node for package.json version bump. For non-Node projects, use the language's own version tool.
+# Detected language is read from discovery.md <project_commands><language>.
+# If language is not TypeScript/JavaScript, use the detected language's version manifest tool instead (e.g. `cargo set-version` for Rust, `poetry version` for Python, `sed` for pyproject.toml/Cargo.toml).
 node -e "const fs=require('fs'); const p='package.json'; const j=JSON.parse(fs.readFileSync(p,'utf8')); j.version='{next_version}'; fs.writeFileSync(p, JSON.stringify(j,null,2)+'\n')"
 ```
         </steps>
@@ -659,7 +662,7 @@ Next:
       <rule>Do not run gh release create before pushing tag.</rule>
       <rule>Use --notes-file for curated release notes.</rule>
       <rule>Use --fail-on-no-commits to avoid duplicate releases when applicable.</rule>
-      <rule>mcp__semble is mandatory for all release code research — call mcp__semble__search before mcp__octocode__search or mcp__serena__find_symbol. Most token-efficient path.</rule>
+      <rule>mcp__semble is mandatory for all release code research — call mcp__semble__search before mcp__octocode__localSearchCode or mcp__serena__find_symbol.</rule>
     </release_rules>
   </control>
 

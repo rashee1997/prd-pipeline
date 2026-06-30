@@ -1,7 +1,7 @@
 ---
-description: "PRD Step 2/7 — Reads discovery.md, performs blast-radius research, validates codebase + external patterns, then writes prd.md and spec.md. No assumptions."
+description: "PRD Step 2/9 — Reads discovery.md, performs blast-radius research, validates codebase + external patterns, then writes prd.md and spec.md. No assumptions."
 argument-hint: "<path to discovery.md>"
-allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, WebSearch, WebFetch, Bash
+allowed-tools: mcp__semble, mcp__serena, mcp__octocode, mcp__context7, WebSearch, WebFetch, Bash
 ---
 
 <command name="/prd-write">
@@ -24,7 +24,7 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, WebSearch
       <item>If evidence is missing, research more. If still missing, mark [UNVERIFIED] instead of assuming.</item>
       <item>Enhancements require compatibility-first planning.</item>
       <item priority="critical">No file path/symbol/route/prop/schema field may appear in prd.md or spec.md unless that exact string came from a tool result this session (Serena/Octocode/Semble/Context7/grep) and has a matching evidence_index entry with tool+file:line. No entry → [UNVERIFIED] in unverified_items, never a guess or "corrected" spelling.</item>
-      <item priority="critical">mcp__semble is MANDATORY for all blast-radius research — it is 100x more token-efficient than octocode/serena for finding files and code. You MUST call mcp__semble__search before every mcp__octocode__search or mcp__serena__find_symbol call. No research phase may begin without at least one mcp__semble__search call.</item>
+      <item priority="critical">mcp__semble is MANDATORY for blast-radius research — call mcp__semble__search before any mcp__octocode__localSearchCode or mcp__serena__find_symbol. See semantic-research protocol in blast-radius-research phase.</item>
       <item priority="critical">External-library evidence is MANDATORY, not optional. Any external library/API/SDK named in prd.md or spec.md — including any new dependency, any method/prop/option/type name, and any version string — MUST be verified this session through BOTH (a) mcp__context7 docs AND (b) mcp__octocode__githubSearchCode/githubGetFileContent against the library's real source (types/signatures/usage), AND its version currency confirmed via mcp__octocode__packageSearch and WebSearch. An external name with only one of these (or none) is [UNVERIFIED] — never a guess. "I know this library" is not evidence.</item>
     </rules>
   </system>
@@ -79,64 +79,63 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, WebSearch
       </verification-protocol>
 
       <project-map>
-        <step tool="mcp__serena__get_overview">
+        <step tool="mcp__serena__get_symbols_overview">
           Record project structure, modules, routes, DB layer, auth, test layout, shared libs.
         </step>
       </project-map>
 
       <discovery-symbol-resolution repeat="for each file, symbol, route, table, model, component, or service mentioned in discovery">
-        <step tool="mcp__serena__find_symbol">Locate exact symbol or closest owning symbol. If discovery's name doesn't resolve, report the discrepancy — don't silently swap in a variant.</step>
-        <step tool="mcp__serena__get_symbol_info">Record signature, fields, props, return type, path, comments.</step>
-        <step tool="mcp__serena__get_related_symbols">Record callers, callees, imports, dependents.</step>
+        <step tool="mcp__serena__find_symbol" include_info="true">Locate exact symbol or closest owning symbol and record signature, fields, props, return type, path, comments. If discovery's name doesn't resolve, report the discrepancy — don't silently swap in a variant.</step>
+        <step tool="mcp__serena__find_referencing_symbols">Record callers, callees, imports, dependents.</step>
       </discovery-symbol-resolution>
 
       <blast-radius-dimensions>
         <dimension name="api" condition="if discovery mentions API routes/endpoints or feature clearly affects HTTP contracts">
-          <search tool="mcp__octocode__search">route handlers, endpoints, request/response types near feature domain</search>
-          <read tool="mcp__octocode__get_file" count="2-5">closest route files</read>
+          <search tool="mcp__octocode__localSearchCode">route handlers, endpoints, request/response types near feature domain</search>
+          <read tool="mcp__octocode__localGetFileContent" count="2-5">closest route files</read>
           <extract>routes touched, contract shapes, auth, status codes, response conventions, consumers</extract>
         </dimension>
 
         <dimension name="database" condition="if feature adds/changes models, columns, queries, or migrations">
-          <search tool="mcp__octocode__search">database/ORM usage for relevant models and adjacent models</search>
-          <read tool="mcp__octocode__get_file" count="2-5">query files and schema/model files</read>
+          <search tool="mcp__octocode__localSearchCode">database/ORM usage for relevant models and adjacent models</search>
+          <read tool="mcp__octocode__localGetFileContent" count="2-5">query files and schema/model files</read>
           <extract>models, relations, required fields, indexes, migrations, destructive-risk areas</extract>
         </dimension>
 
         <dimension name="auth-security" condition="if feature involves new permissions, roles, tokens, public access, or rate limits">
-          <search tool="mcp__octocode__search">auth(), permissions, role checks, token validation, public routes</search>
-          <read tool="mcp__octocode__get_file" count="2-5">auth-protected and public route examples</read>
+          <search tool="mcp__octocode__localSearchCode">auth(), permissions, role checks, token validation, public routes</search>
+          <read tool="mcp__octocode__localGetFileContent" count="2-5">auth-protected and public route examples</read>
           <extract>auth pattern, permission model, unauth response, public access safeguards, rate-limit patterns</extract>
         </dimension>
 
         <dimension name="ui" condition="if feature involves user-facing pages, components, navigation, or UI state">
-          <search tool="mcp__octocode__search">pages/components/hooks related to the feature domain</search>
-          <read tool="mcp__octocode__get_file" count="2-5">relevant UI components/pages</read>
+          <search tool="mcp__octocode__localSearchCode">pages/components/hooks related to the feature domain</search>
+          <read tool="mcp__octocode__localGetFileContent" count="2-5">relevant UI components/pages</read>
           <extract>component boundaries, props, data fetching, state, design system conventions</extract>
         </dimension>
 
         <dimension name="workflow-events" condition="if feature involves state machines, jobs, events, notifications, or background processing">
-          <search tool="mcp__octocode__search">workflow, status, state transition, event, notification, job, queue terms</search>
-          <read tool="mcp__octocode__get_file" count="2-5">workflow/event/job files</read>
+          <search tool="mcp__octocode__localSearchCode">workflow, status, state transition, event, notification, job, queue terms</search>
+          <read tool="mcp__octocode__localGetFileContent" count="2-5">workflow/event/job files</read>
           <extract>state machine rules, side effects, jobs, notifications, status constraints</extract>
         </dimension>
 
         <dimension name="integrations" condition="if feature involves email, storage, webhooks, external APIs, uploads, or exports">
-          <search tool="mcp__octocode__search">email, provider, storage, webhook, external API, upload, export terms</search>
-          <read tool="mcp__octocode__get_file" count="1-4">integration files</read>
+          <search tool="mcp__octocode__localSearchCode">email, provider, storage, webhook, external API, upload, export terms</search>
+          <read tool="mcp__octocode__localGetFileContent" count="1-4">integration files</read>
           <extract>integration APIs, error handling, retry behavior, configuration</extract>
         </dimension>
 
         <dimension name="tests" condition="always — tests are always impacted">
-          <search tool="mcp__octocode__search">existing tests around affected modules and frozen contracts</search>
-          <read tool="mcp__octocode__get_file" count="2-5">closest test files</read>
+          <search tool="mcp__octocode__localSearchCode">existing tests around affected modules and frozen contracts</search>
+          <read tool="mcp__octocode__localGetFileContent" count="2-5">closest test files</read>
           <extract>mocking style, test setup, regression gaps, contract tests needed</extract>
         </dimension>
       </blast-radius-dimensions>
 
       <semantic-research required="true">
         <principle>mcp__semble is the PRIMARY research tool — run it FIRST before any dimension-specific search. It is 100x more token-efficient.</principle>
-        <step tool="mcp__semble__search" required="true">Search conceptual equivalents, find files by feature/behavior/domain using natural-language queries — always run before mcp__octocode__search. Use 3-5 diverse queries per dimension.</step>
+        <step tool="mcp__semble__search" required="true">Search conceptual equivalents, find files by feature/behavior/domain using natural-language queries — always run before mcp__octocode__localSearchCode. Use 3-5 diverse queries per dimension.</step>
         <step tool="mcp__semble__find_related" required="true">For each relevant result, find adjacent implementations, hidden dependencies, and semantically similar code.</step>
       </semantic-research>
 
@@ -756,7 +755,7 @@ For each utility:
       <rule>For enhancements, frozen contracts must appear before implementation order.</rule>
       <rule>Never fabricate a file:line citation — a made-up citation is worse than none.</rule>
       <rule>Any name in prd.md/spec.md body text must resolve to an evidence entry; unresolved names become [UNVERIFIED], never silently "cleaned up" into a guessed real name.</rule>
-      <rule>mcp__semble is mandatory for all blast-radius research. Call mcp__semble__search before every mcp__octocode__search or mcp__serena__find_symbol. Most token-efficient path.</rule>
+      <rule>Enforce the semantic-research protocol: mcp__semble__search before mcp__octocode__localSearchCode or mcp__serena__find_symbol.</rule>
     </critical>
   </control>
 
