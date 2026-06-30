@@ -1,7 +1,7 @@
 ---
 description: "PRD Step 2/7 — Reads discovery.md, performs blast-radius research, validates codebase + external patterns, then writes prd.md and spec.md. No assumptions."
 argument-hint: "<path to discovery.md>"
-allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
+allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, WebSearch, WebFetch, Bash
 ---
 
 <command name="/prd-write">
@@ -25,6 +25,7 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
       <item>Enhancements require compatibility-first planning.</item>
       <item priority="critical">No file path/symbol/route/prop/schema field may appear in prd.md or spec.md unless that exact string came from a tool result this session (Serena/Octocode/Semble/Context7/grep) and has a matching evidence_index entry with tool+file:line. No entry → [UNVERIFIED] in unverified_items, never a guess or "corrected" spelling.</item>
       <item priority="critical">mcp__semble is MANDATORY for all blast-radius research — it is 100x more token-efficient than octocode/serena for finding files and code. You MUST call mcp__semble__search before every mcp__octocode__search or mcp__serena__find_symbol call. No research phase may begin without at least one mcp__semble__search call.</item>
+      <item priority="critical">External-library evidence is MANDATORY, not optional. Any external library/API/SDK named in prd.md or spec.md — including any new dependency, any method/prop/option/type name, and any version string — MUST be verified this session through BOTH (a) mcp__context7 docs AND (b) mcp__octocode__githubSearchCode/githubGetFileContent against the library's real source (types/signatures/usage), AND its version currency confirmed via mcp__octocode__packageSearch and WebSearch. An external name with only one of these (or none) is [UNVERIFIED] — never a guess. "I know this library" is not evidence.</item>
     </rules>
   </system>
 
@@ -139,21 +140,32 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
         <step tool="mcp__semble__find_related" required="true">For each relevant result, find adjacent implementations, hidden dependencies, and semantically similar code.</step>
       </semantic-research>
 
-      <external-research>
-        <task>Validate non-trivial implementation approaches before specifying them.</task>
+      <external-research required="true">
+        <task>MANDATORY whenever the spec will name ANY external library/API/SDK or add/upgrade ANY dependency. Skip ONLY when the feature introduces zero external surface (no new package, no third-party API/method/option). If you skip, you MUST state "no external surface — external research skipped" in known_unknowns. "I already know this API" never justifies skipping — training data is stale and is not evidence.</task>
 
-        <libraries repeat="for each library/API that spec may use">
-          <step tool="mcp__context7__resolve_library_id">Resolve exact library.</step>
-          <step tool="mcp__context7__get_library_docs">Fetch targeted API docs only.</step>
-          <record>library, version if found, method signatures, constraints, gotchas — exactly as shown in fetched docs</record>
-        </libraries>
+        <step-1-version tool="mcp__octocode__packageSearch">
+          For every new/changed dependency: resolve exact latest version, peer-dependency constraints, and the canonical source repo. Record the exact version string to pin.
+        </step-1-version>
 
-        <github repeat="for each non-trivial pattern">
-          <step tool="mcp__octocode__github_search">
-            Find real implementations with same framework/language/domain where possible.
-          </step>
-          <record>repo/file, pattern confirmed, edge cases, anti-patterns, spec section supported</record>
-        </github>
+        <step-2-docs>
+          <step tool="mcp__context7__resolve-library-id">Resolve exact library id.</step>
+          <step tool="mcp__context7__query-docs">Fetch targeted docs for the specific API the spec will use.</step>
+          <record>library, version, exact method/prop/option/type names, signatures, constraints, gotchas — copy-pasted, never paraphrased into a guess.</record>
+        </step-2-docs>
+
+        <step-3-source tool="mcp__octocode__githubSearchCode" required="true">
+          REQUIRED for every external symbol the spec names. Search the library's REAL source repo (the repoUrl from packageSearch) to confirm the exact exported name / prop type / option shape, then mcp__octocode__githubGetFileContent to read the defining file. Docs alone are insufficient — confirm against source. Record repo/path:symbol for each.
+        </step-3-source>
+
+        <step-4-web tool="WebSearch" required="true">
+          REQUIRED for version currency and breaking-change risk. Search for: latest stable version, recent breaking changes / migration notes, known issues with the target framework/runtime version in this project (e.g. React/Next versions). Use WebFetch to read a release note / changelog / issue when a result is decision-relevant. Record findings + source URL; surface any version or compatibility risk in known_unknowns or as a non-blocking implementation flag.
+        </step-4-web>
+
+        <step-5-patterns tool="mcp__octocode__githubSearchCode">
+          For each non-trivial integration pattern, find a real-world implementation (same framework/runtime where possible) and record repo/file, pattern confirmed, edge cases, anti-patterns, and which spec section it supports.
+        </step-5-patterns>
+
+        <record>For each external symbol: name | context7 doc ref | octocode repo/path:line | packageSearch version | web source URL. This is the external evidence_index. A symbol missing the context7 OR the octocode-source confirmation is [UNVERIFIED].</record>
       </external-research>
 
       <enhancement-extra condition="feature_mode=enhancement">
@@ -172,6 +184,7 @@ allowed-tools: mcp__serena, mcp__octocode, mcp__semble, mcp__context7, Bash
         <require>All discovery-mentioned code references resolved or marked [UNVERIFIED].</require>
         <require>API, DB, auth/security, UI, workflow, integration, and test impacts assessed. If a dimension has zero evidence of impact, skip its research section and note "no evidence of impact — section skipped" in output. Do not perform zero-info research.</require>
         <require>External patterns verified for non-trivial design choices.</require>
+        <require priority="critical">Every external library/API/SDK the spec will name is verified through ALL of: mcp__context7 docs, mcp__octocode source (real repo path:line), mcp__octocode__packageSearch version, and WebSearch currency/breaking-change check — OR the feature has zero external surface and that is stated. Any external symbol short of context7 + octocode-source confirmation is [UNVERIFIED] before Phase 3. No external dependency may be added to scope without a packageSearch-confirmed pinned version.</require>
         <require>Enhancement frozen contracts and callers identified before PRD/spec writing.</require>
         <require>Known unknowns listed explicitly.</require>
         <require>Every ledger name has a tool+file:line source; names without one drop to [UNVERIFIED] before Phase 3.</require>
@@ -739,6 +752,7 @@ For each utility:
       <rule>Do not silently assume compatibility safety.</rule>
       <rule>Do not omit security impact.</rule>
       <rule>Do not specify external/library APIs without verification.</rule>
+      <rule priority="critical">External research (Context7 docs + octocode GitHub source + packageSearch version + WebSearch currency) is MANDATORY for every external symbol/dependency named in the spec — not optional, not skippable on "I know this". Confirm against the library's real source via octocode, not docs alone. Unverified external names are [UNVERIFIED]; unverified versions block the dependency from scope.</rule>
       <rule>For enhancements, frozen contracts must appear before implementation order.</rule>
       <rule>Never fabricate a file:line citation — a made-up citation is worse than none.</rule>
       <rule>Any name in prd.md/spec.md body text must resolve to an evidence entry; unresolved names become [UNVERIFIED], never silently "cleaned up" into a guessed real name.</rule>
