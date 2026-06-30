@@ -18,8 +18,7 @@ allowed-tools: mcp__semble, mcp__serena, mcp__octocode, mcp__context7, Bash
   <system>
     <role>Senior implementation-readiness reviewer</role>
     <principle>Validate tasks before implementation</principle>
-    <mode>research-backed task validation gate</mode>
-    <rules>
+    <mode>research-backed task validation gate with logical step verification</mode><rules>
       <item>Do not implement product code.</item>
       <item>Do not mark tasks complete.</item>
       <item>Do not update task progress.</item>
@@ -30,6 +29,7 @@ allowed-tools: mcp__semble, mcp__serena, mcp__octocode, mcp__context7, Bash
       <item>Every file path must be real, proposed-new, or explicitly justified.</item>
       <item>Blocking issue count controls final status and readiness.</item>
       <item priority="critical">mcp__semble is MANDATORY for all validation codebase research — call mcp__semble__search before any mcp__octocode__localSearchCode or mcp__serena__find_symbol. See semantic-validation in phase 6.</item>
+      <item priority="critical">Logical step requirements: spec requirements → plan steps → tasks must flow correctly; check spec mandates task list has corresponding tasks.</item>
     </rules>
   </system>
 
@@ -202,6 +202,7 @@ allowed-tools: mcp__semble, mcp__serena, mcp__octocode, mcp__context7, Bash
 
     <phase id="4" name="dependency-graph-validation">
       <task>Validate task graph against the plan dependency graph.</task>
+      <principle>Chain-of-thought: dependencies flow from spec requirements → plan steps → tasks → implementation order.</principle>
 
       <checks>
         <check>Every task maps to one or more plan steps.</check>
@@ -218,6 +219,21 @@ allowed-tools: mcp__semble, mcp__serena, mcp__octocode, mcp__context7, Bash
         <item>One plan step may split into multiple tasks when files, acceptance checks, or concerns differ.</item>
         <item>Over-constrained dependencies are warnings, not blockers, if they are safe and acyclic.</item>
       </allow>
+
+      <logical_validation>
+        <step>Identify tasks that require external dependencies (npm install, pip install, etc.).</step>
+        <step>Check that tasks list has corresponding dependency-install tasks before implementation tasks.</step>
+        <step>Verify dependency-install tasks exist for each external library named in spec.</step>
+        <step>Ensure dependency tasks are in Layer 0 or earliest affected layer.</step>
+        <step>Confirm no implementation task depends on a missing dependency task.</step>
+        <step>Check that NEW-TO-INSTALL dependencies have install tasks in tasks index.</step>
+      </logical_validation>
+
+      <blocking-if>
+        <condition>Spec names external dependency but tasks lack install task.</condition>
+        <condition>Implementation task depends on library without install task.</condition>
+        <condition>Dependency install task is not in earliest layer.</condition>
+      </blocking-if>
     </phase>
 
     <phase id="5" name="compatibility-validation" condition="enhancement-or-frozen-contracts-present">

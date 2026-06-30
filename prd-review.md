@@ -1,37 +1,38 @@
 ---
 description: "PRD Step 6/9 — Parallel code review with Ponytail discipline. Dispatches specialist reviewers, merges findings, deduplicates, sorts by severity."
-argument-hint: "<path to prd-folder>"
+argument-hint: "<path to prd-folder> [--layer {layer-name}]"
 allowed-tools: mcp__semble, mcp__serena, mcp__octocode, Task, Bash
 ---
 
 <command name="/prd-review">
-
-  <execution>
-    <follow_structure>strict</follow_structure>
-    <treat_tags_as_semantic>true</treat_tags_as_semantic>
-    <do_not_skip_phases>true</do_not_skip_phases>
-    <do_not_assume>true</do_not_assume>
-    <output_findings_only>true</output_findings_only>
-  </execution>
-
-  <system>
-    <role>Review orchestrator</role>
-    <principle>Gather → Dispatch → Deduplicate → Report</principle>
-    <rules>
-      <item>No praise</item>
-      <item>No padding</item>
-      <item>No invented findings</item>
-      <item>No finding without file and line</item>
-      <item priority="critical">mcp__semble is MANDATORY for all review code discovery — use mcp__semble__search to find relevant files by concept before reading them. See semantic-discovery in phase 1.</item>
-      <item>Deduplicate before output</item>
-      <item>CRITICAL and HIGH must block PR</item>
-    </rules>
-  </system>
-
-  <input>
-    <prd_folder>{$ARGUMENTS}</prd_folder>
-    <outputs>merged review findings only</outputs>
-  </input>
+ 
+   <execution>
+     <follow_structure>strict</follow_structure>
+     <treat_tags_as_semantic>true</treat_tags_as_semantic>
+     <do_not_skip_phases>true</do_not_skip_phases>
+     <do_not_assume>true</do_not_assume>
+     <output_findings_only>true</output_findings_only>
+   </execution>
+ 
+   <system>
+     <role>Review orchestrator</role>
+     <principle>Gather → Dispatch → Deduplicate → Report</principle>
+     <rules>
+       <item>No praise</item>
+       <item>No padding</item>
+       <item>No invented findings</item>
+       <item>No finding without file and line</item>
+       <item priority="critical">mcp__semble is MANDATORY for all review code discovery — use mcp__semble__search to find relevant files by concept before reading them. See semantic-discovery in phase 1.</item>
+       <item>Deduplicate before output</item>
+       <item>CRITICAL and HIGH must block PR</item>
+     </rules>
+   </system>
+ 
+   <input>
+     <prd_folder>{$ARGUMENTS}</prd_folder>
+     <layer_flag>{$LAYER_FLAG}</layer_flag>
+     <outputs>merged review findings only</outputs>
+   </input>
 
   <ponytail>
     <function>
@@ -64,11 +65,18 @@ allowed-tools: mcp__semble, mcp__serena, mcp__octocode, Task, Bash
       <task>Collect changed files, static analysis/lint errors (or typecheck errors if the project has a type-checker), PRD/spec context, and file buckets.</task>
 
       <steps>
+<phase id="1" name="gather-context">
+      <task>Collect changed files, static analysis/lint errors (or typecheck errors if the project has a type-checker), PRD/spec context, and file buckets.</task>
+
+      <steps>
         <step name="semantic-discovery">
           Use mcp__semble__search with 2-3 natural-language queries related to the feature/module being reviewed to find all relevant files. This is the most token-efficient path — do not skip.
         </step>
-
+        <step name="layer-selection" condition="layer-flag-invoked">
+          If --layer flag is provided, restrict focus and file buckets to the specified layer.
+        </step>
         <step name="detect-base">
+...
 ```bash
 BASE=$(git remote show origin 2>/dev/null | grep "HEAD branch" | awk '{print $NF}')
 [ -z "$BASE" ] && BASE=$(git branch -r 2>/dev/null | grep -E 'origin/(main|master)' | head -1 | sed 's|.*origin/||' | tr -d ' ')
