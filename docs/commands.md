@@ -13,14 +13,15 @@
   ↓
 /prd-validate   ← Step 4a — quality gate before implementation
   ↓
-/prd-implement
+/prd-implement  ← spec blocker? → /prd-update --existing "{prompt}" → re-validate → resume
   ↓
 /prd-review
   ↓
 /prd-pr
 ```
 
-`/prd-release` is an optional Step 8 for release management.
+`/prd-release` is an optional Step 8 for release management.  
+`/prd-update` can be invoked at any stage after `/prd-discover` — manually or automatically from `/prd-implement`.
 
 ## 1. `/prd-discover`
 
@@ -205,6 +206,49 @@ Creates a pull request after all gates pass.
 - Pushes the feature branch
 - Opens the PR with GitHub CLI
 
+## `/prd-update` (any stage after discovery)
+
+Amends the PRD mid-pipeline and cascades the minimum required changes through spec, plan, and tasks. Use when implementation hits a spec blocker, or when requirements or intent change after tasks were created.
+
+**Invocation — from prd-implement (copy-paste the generated prompt):**
+```
+/prd-update --existing "TASK:TASK-1-02 | BLOCKER:SCHEMA_MISMATCH | ISSUE:approvedAt field missing from Document model | DISCOVERED:schema has no approvedAt column | AFFECTED_FILES:src/actions/approve.ts | FEATURE:docs/prd/external-reviewer-28-06-2026"
+```
+
+**Invocation — manual (intent or requirement change):**
+```
+/prd-update docs/prd/{feature}/ "description of what changed"
+```
+
+**What it does:**
+- Parses the change (structured prompt or free-form description)
+- **Research phase** — semble + serena + octocode research confirms actual codebase state before any update
+- **Classifies cascade depth** — routes to the shallowest level that covers the change:
+  - `TASKS_ONLY` — task structure wrong, spec is fine
+  - `PLAN_AND_TASKS` — missing tasks or wrong layer order
+  - `SPEC_CASCADE` — wrong API/schema/symbol in spec (most IMPLEMENTATION_BLOCKER cases)
+  - `FULL_CASCADE` — requirement or intent changed
+  - `DISCOVERY_ADDENDUM` — new research finding only
+- **CoVe checkpoint** — all new symbols/paths verified before entering any artifact
+- **Delta updates** — only changed sections rewritten; completed [x] tasks never touched
+- **Invalidates validation.md** — marks STALE when tasks are modified, requiring re-run of `/prd-validate`
+
+**Blocker types (--existing):**
+
+| Type | Meaning |
+|---|---|
+| `SPEC_WRONG` | Symbol, route, or file named in spec does not exist in live code |
+| `API_CHANGED` | External library API changed since spec was written |
+| `MISSING_DEP` | Dependency the task needs is absent from the manifest |
+| `SCHEMA_MISMATCH` | Schema column/field name in task contradicts actual schema |
+| `ASSUMPTION_INVALID` | A task assumption (file exists, column present, etc.) is false |
+
+**After `/prd-update`:**
+```
+/prd-validate docs/prd/{feature}/tasks/index.md
+/prd-implement docs/prd/{feature}/tasks/{next-task}.md
+```
+
 ## 8. `/prd-release` (optional)
 
 Release manager. Builds changelog/release notes, bumps version, commits, tags, and creates GitHub Release.
@@ -246,6 +290,7 @@ Release manager. Builds changelog/release notes, bumps version, commits, tags, a
 ├── prd-tasks.md
 ├── prd-validate.md
 ├── prd-implement.md
+├── prd-update.md           ← mid-pipeline amendment (any stage after discovery)
 ├── prd-review.md
 ├── prd-pr.md
 ├── prd-release.md

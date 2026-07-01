@@ -13,7 +13,7 @@
 
 <p align="center">
   <img alt="License" src="https://img.shields.io/badge/license-MIT-blue.svg">
-  <img alt="Pipeline" src="https://img.shields.io/badge/pipeline-9\_commands-7C5CFF.svg">
+  <img alt="Pipeline" src="https://img.shields.io/badge/pipeline-10\_commands-7C5CFF.svg">
   <img alt="Complexity Routing" src="https://img.shields.io/badge/complexity-routing-22C55E.svg">
   <img alt="MCP Ready" src="https://img.shields.io/badge/MCP-ready-22C55E.svg">
   <img alt="Validation Gated" src="https://img.shields.io/badge/validation-gated-F59E0B.svg">
@@ -26,6 +26,8 @@ An evidence-first, PRD-driven software delivery workflow for local AI coding age
 
 ```text
 /prd-discover → /prd-write → /prd-plan → /prd-tasks → /prd-validate → /prd-implement → /prd-review → /prd-pr
+                                                                                ↑
+                                                                         /prd-update  ← amend at any stage
 ```
 
 ## Quick Start
@@ -57,6 +59,7 @@ cp prd-*.md _shared.md /path/to/your/agent/commands/
 | **Makes semantic search (Semble MCP) mandatory** | 100x more token-efficient than regex/grep |
 | **Shared rules in `_shared.md`** — single source of truth | Update base execution rules, MCP policy, and verification protocol once; applies to all 9 commands |
 | **Zero runtime dependencies** — pure portable Markdown | Copy into any agent runtime and run |
+| **`/prd-update` mid-pipeline amendment** | When implementation hits a spec blocker, generates a copy-paste prompt. User pastes it to `/prd-update --existing` which cascades the fix through spec → plan → tasks minimum-invasively |
 
 ## Intelligent Optimization
 

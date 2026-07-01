@@ -391,6 +391,34 @@ allowed-tools: mcp__semble, mcp__serena, mcp__octocode, mcp__context7, Task, Bas
         </output>
         <stop/>
       </if>
+
+      <spec_blocker condition="MCP research reveals a spec-level contradiction — not just missing tool availability">
+        <detect>
+          Spec-level blockers that require /prd-update (not a code fix):
+          - SPEC_WRONG: a symbol, route, or component named in the task does not exist in live code
+          - API_CHANGED: external library API method/signature changed since the spec was written
+          - MISSING_DEP: a dependency the task needs is absent from package manifest
+          - SCHEMA_MISMATCH: a schema column/field name in the task contradicts the actual schema
+          - ASSUMPTION_INVALID: a task assumption (file exists, table has column, service is present) is false
+        </detect>
+        <output>
+          ⛔ SPEC BLOCKER — {TASK-ID}
+
+          Implementation cannot proceed: {BLOCKER_TYPE}
+
+          **Issue:** {one sentence}
+          **Spec claims:** {what the task/spec said}
+          **Live code shows:** {what MCP research found}
+
+          The spec or task must be corrected before this task can be implemented.
+          Copy this prompt to fix it:
+
+          ```
+          /prd-update --existing "TASK:{task-id} | BLOCKER:{SPEC_WRONG|API_CHANGED|MISSING_DEP|SCHEMA_MISMATCH|ASSUMPTION_INVALID} | ISSUE:{one-sentence description} | DISCOVERED:{actual-vs-expected} | AFFECTED_FILES:{comma-separated file paths} | FEATURE:{feature-folder-path}"
+          ```
+        </output>
+        <stop/>
+      </spec_blocker>
     </phase>
 
     <phase id="8" name="implement">
@@ -424,6 +452,35 @@ allowed-tools: mcp__semble, mcp__serena, mcp__octocode, mcp__context7, Task, Bas
         <rule>Reuse existing code, stdlib/runtime, or installed dependency where appropriate.</rule>
         <rule>Prefer smallest correct implementation.</rule>
       </ponytail>
+
+      <mid-impl-spec-check>
+        <trigger>A spec contradiction discovered DURING implementation (not caught by phase 7 research).</trigger>
+        <examples>
+          - Writing code reveals a DB column the spec named doesn't exist
+          - The existing function signature differs from what the task described
+          - A library method the task relies on behaves differently than spec assumed
+          - An auth/permission model works differently than spec described
+        </examples>
+        <action>Stop immediately. Do not commit partial work. Generate the /prd-update prompt below and halt.</action>
+        <output>
+          ⛔ MID-IMPLEMENTATION SPEC BLOCKER — {TASK-ID}
+
+          A spec contradiction was found during implementation:
+          **Issue:** {one sentence}
+          **Spec claims:** {what the spec/task said}
+          **Actual:** {what code reveals}
+
+          Partial work has NOT been committed. Copy this prompt to correct the spec:
+
+          ```
+          /prd-update --existing "TASK:{task-id} | BLOCKER:{type} | ISSUE:{description} | DISCOVERED:{actual-vs-expected} | AFFECTED_FILES:{files} | FEATURE:{feature-folder}"
+          ```
+
+          After /prd-update completes, re-run:
+          `/prd-validate {tasks-folder}/index.md`
+          `/prd-implement {task-file}`
+        </output>
+      </mid-impl-spec-check>
     </phase>
 
     <phase id="9" name="self-review">
