@@ -28,9 +28,12 @@ Research-first Socratic discovery. Assesses scope, researches codebase + externa
 
 **Input:** `/prd-discover "external reviewer approval flow"`
 
+**Greenfield:** `/prd-discover "your app idea" --greenfield`
+
 **Output:** `docs/prd/{feature-slug}-{date}/discovery.md`
 
 **What it does:**
+- **Input gate** — stops immediately with a recovery message if no feature description is provided
 - Assesses whether the feature should be decomposed
 - **Complexity routing** — classifies task as trivial/simple/complex; skips deep research for ≤3-file changes (60-80% token savings)
 - Researches the existing codebase before asking questions
@@ -40,24 +43,39 @@ Research-first Socratic discovery. Assesses scope, researches codebase + externa
 - Question count adapts to complexity: 3 max (trivial), 7 max (simple), 12 max (complex)
 - Writes `discovery.md` with complexity routing evidence
 
+**`--greenfield` mode:**
+- Skips live codebase scan (nothing exists yet)
+- Researches external patterns and similar projects via GitHub/web instead
+- Asks tech-stack, architecture, and ADR (Architecture Decision Record) questions instead of blast-radius questions
+- Outputs `discovery.md` with `mode: greenfield` marker and `adr_stubs` section
+
 ## 2. `/prd-write`
 
 Turns discovery into a PRD and technical specification.
 
 **Input:** `/prd-write docs/prd/{feature}/discovery.md`
 
+**Delta mode:** `/prd-write docs/prd/{feature}/discovery.md --delta`
+
 **Outputs:** `prd.md`, `spec.md`
 
 **What it does:**
+- **Input gate** — stops if `discovery.md` is missing or empty
 - Reads `discovery.md`
 - Performs deeper codebase research
 - Verifies library APIs and implementation patterns
 - **Conditional blast-radius** — only researches dimensions with evidence of impact (~40% smaller specs)
+- **CoVe (Chain-of-Verification) checkpoint** — before writing final files, extracts every cited file path/symbol/route from the draft and re-verifies each via MCP; unconfirmed names become `[UNVERIFIED]` rather than silently passing through (~77% fewer hallucinated names)
 - **EARS acceptance criteria** — uses machine-parseable WHEN/WHILE/IF/WHERE + SHALL notation
 - **Content-hashed spec blocks** — SHA-256 anchors in drift_anchors section for CI drift detection
 - Writes a testable PRD
 - Writes a buildable technical spec
 - Captures compatibility requirements for enhancements
+
+**`--delta` mode** (brownfield only):
+- `spec.md` outputs three tables only: ADDED / MODIFIED / REMOVED with `file:symbol:change_type` columns
+- Unchanged sections are omitted — 60-80% smaller specs for small enhancements
+- `prd.md` remains full-format regardless
 
 ## 3. `/prd-plan`
 
@@ -106,9 +124,12 @@ Validates generated tasks before implementation.
 
 **Input:** `/prd-validate docs/prd/{feature}/tasks/index.md`
 
+**Greenfield:** `/prd-validate docs/prd/{feature}/tasks/index.md --greenfield`
+
 **Output:** `tasks/validation.md`
 
 **What it does:**
+- **Input gate** — stops if tasks path does not exist
 - Checks task context isolation
 - Validates dependency graph correctness
 - Checks file path accuracy
@@ -119,6 +140,12 @@ Validates generated tasks before implementation.
 - Checks live codebase references
 - Blocks implementation if generated tasks are not ready
 
+**`--greenfield` mode:**
+- Replaces live-code existence checks with spec-conformance checks (no codebase exists yet)
+- Checks path conventions instead of path existence
+- Checks cross-task interface consistency instead of blast-radius
+- Reports `spec_conformance_score` (0-100%); pass threshold ≥ 80%
+
 ## 5. `/prd-implement`
 
 Implements validated task files.
@@ -128,8 +155,10 @@ Implements validated task files.
 **Parallel layer mode:** `/prd-implement --parallel-layer 0`
 
 **What it does:**
+- **Input gate** — stops if no task specified or validation has not passed
 - Reads one task file
 - Confirms dependencies are complete
+- **Reads output notes from completed dependencies** — before researching, reads the `> **Output:**` note below each dependency row in `index.md` to catch deviations, renames, or side effects from prior tasks
 - Confirms `/prd-validate` passed
 - Finds the nearest existing codebase pattern via MCP
 - **Re-anchoring checkpoint** — re-reads task goal at 50% of steps to prevent agent drift
@@ -137,7 +166,7 @@ Implements validated task files.
 - Writes the minimum code needed
 - Runs acceptance checks
 - Commits implementation
-- Updates `tasks/index.md`
+- Updates `tasks/index.md` — marks task `[x]` and appends a brief `> **Output:**` note (max 60 words) below the task row recording what was implemented and any deviations relevant to downstream tasks
 
 ## 6. `/prd-review`
 
@@ -208,6 +237,7 @@ Release manager. Builds changelog/release notes, bumps version, commits, tags, a
 .
 ├── README.md
 ├── LICENSE
+├── _shared.md          ← shared base rules for all commands (not a command itself)
 ├── assets/
 │   └── logo.png
 ├── prd-discover.md

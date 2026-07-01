@@ -23,8 +23,14 @@ The spec-driven development ecosystem has grown rapidly. Here is how PRD Pipelin
 | **Faithfulness check** (diff matches intent, not just tests) | ✅ Spec-compliance reviewer checks faithfulness | ❌ No intent verification | ❌ No intent verification | ❌ No intent verification | ❌ No intent verification |
 | **File size enforcement** (split past ~350 lines) | ✅ Hard rule in plan/tasks/implement | ❌ No file limits | ❌ No file limits | ❌ No file limits | ❌ No file limits |
 | **Validation gate** (before implementation) | ✅ `/prd-validate` blocks if tasks not ready | ❌ No validation gate | ❌ No validation gate | ❌ No validation gate | ❌ No validation gate |
+| **Fail-fast input gates** on every command | ✅ **Unique** — every command stops with a clear recovery message if inputs are missing | ❌ Silent failure | ❌ Silent failure | ❌ Silent failure | ❌ Silent failure |
 | **Task isolation** (fresh subagent ready) | ✅ **Unique** — every task is self-contained, 300-600 words | 🟡 Tasks reference spec/plan | 🟡 Tasks reference parent docs | 🟡 Tasks reference parent docs | 🟡 Tasks reference parent docs |
+| **Task output log** | ✅ Deviation notes written to index.md; next task reads them | ❌ | ❌ | ❌ | ❌ |
 | **Enhancement/compat mode** | ✅ **Unique** — frozen contracts, Layer 0, cutover | ❌ No enhancement mode | ❌ No enhancement mode | ❌ No enhancement mode | ❌ No enhancement mode |
+| **Greenfield mode** (`--greenfield`) | ✅ Switches to ADR/tech-stack Q&A + spec-conformance validation | ❌ | ❌ | ❌ | ❌ |
+| **Delta spec mode** (`--delta`) | ✅ ADDED/MODIFIED/REMOVED only — 60-80% smaller brownfield specs | ❌ Always full spec | ❌ Always full spec | ❌ Always full spec | ❌ Always full spec |
+| **CoVe verification** (chain-of-verification) | ✅ Re-verifies every cited name before writing spec (~77% fewer hallucinated symbols) | ❌ No re-verification | ❌ No re-verification | ❌ No re-verification | ❌ No re-verification |
+| **Shared rules (`_shared.md`)** | ✅ Single source of truth; update once, applies to all commands | ❌ Rules duplicated per command | ❌ | ❌ | ❌ |
 | **Ponytail discipline** | ✅ Built into every command | ❌ | ❌ | ❌ | ❌ |
 | **Semantic search (Semble) integration** | ✅ **Unique** — mandatory, token-efficient MCP | ❌ Regex/grep based | ❌ Regex/grep based | ❌ Regex/grep based | ❌ Regex/grep based |
 | **TDD mode** | ✅ `--tdd` flag in planning | 🟡 Via extensions | ❌ | ❌ | ❌ |
@@ -48,8 +54,9 @@ The spec-driven development ecosystem has grown rapidly. Here is how PRD Pipelin
 **Choose another tool if:**
 - You want an installer/CLI (`npm install`) rather than copying Markdown files
 - You need 30+ agent integrations out of the box
-- You work primarily on greenfield projects with no existing codebase to research
 - You prefer lighter process and are willing to trade safety for speed
+
+> **Greenfield note:** PRD Pipeline now supports new projects via `--greenfield` flag on `/prd-discover` and `/prd-validate`. It skips live-code research and switches to external pattern research + spec-conformance validation. Full greenfield scaffold generation (boilerplate, CI setup) is outside scope — use a scaffolding tool alongside.
 
 ## Related Projects
 

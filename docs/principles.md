@@ -112,6 +112,36 @@ At ~50% of task implementation steps, the agent re-reads the original task goal 
 
 A diff that passes all tests but behaves differently from the stated acceptance criteria is drift, not done. The spec-compliance reviewer checks faithfulness — does the code actually do what the criteria say, not just pass whatever test was written for it?
 
+## Fail-Fast Input Gates
+
+Every command validates its required inputs before doing any work. If `discovery.md` doesn't exist, `prd-write` stops immediately with a clear message: what is missing and which command to run first. Silent failures waste tokens and produce garbage output.
+
+## Chain-of-Verification (CoVe)
+
+Before `prd-write` writes its final files, it extracts every file path, symbol name, API route, and schema field cited in the draft and re-verifies each one against the live codebase via MCP. Items not found become `[UNVERIFIED: name]` — never silently substituted with a plausible guess. Research shows this reduces hallucinated symbol references by ~77% compared to single-pass generation.
+
+## Greenfield Mode
+
+When `--greenfield` is passed to `/prd-discover` and `/prd-validate`, the pipeline switches from live-code-verification mode to spec-conformance mode:
+
+- Discovery asks tech-stack, architectural boundary, and ADR questions instead of blast-radius questions
+- Research targets external patterns and similar projects instead of the local codebase
+- Validation checks spec-conformance score (≥ 80% of tasks must link to a PRD requirement) instead of file/symbol existence
+
+The rest of the pipeline (write → plan → tasks → implement → review → pr) runs identically.
+
+## Delta Spec Mode
+
+When `--delta` is passed to `/prd-write` for a small brownfield enhancement, `spec.md` outputs only three tables: ADDED, MODIFIED, REMOVED. Unchanged sections are omitted. `prd.md` remains full-format. For 1-3 file changes this reduces spec size by 60-80% without losing traceability.
+
+## Shared Rules (`_shared.md`)
+
+Base execution settings, the semble-first research rule, the UNVERIFIED tagging protocol, and the MCP fallback policy live in `_shared.md`. Every command references it. When a rule needs updating, one file changes — not nine.
+
+## Task Output Log
+
+When a task completes, `prd-implement` appends a brief `> **Output:**` note (max 60 words) directly below the task row in `tasks/index.md`. The next sequential task reads this note before researching — catching renames, unexpected side effects, or deviations from the plan before they propagate as stale assumptions.
+
 ## Design Goals
 
 This system optimizes for:
@@ -121,6 +151,8 @@ This system optimizes for:
 - Better parallel execution
 - **Proportional effort** — trivial changes skip expensive pipeline steps
 - **Drift resistance** — re-anchoring and faithfulness checks prevent mid-task divergence
+- **Greenfield support** — `--greenfield` flag covers new projects without a separate pipeline
+- **Fail-fast** — every command gates on valid inputs before consuming tokens
 - Easier review
 - Safer PR creation
 - Stronger traceability from requirement to code
