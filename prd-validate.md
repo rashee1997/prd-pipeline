@@ -312,11 +312,34 @@ allowed-tools: mcp__semble, mcp__serena, mcp__octocode, mcp__context7, Bash
         <step tool="mcp__semble__find_related" required="true">Find semantically adjacent code for validation cross-checking.</step>
       </semantic-validation>
 
-      <library-validation optional="true">
-        <step tool="mcp__context7__query-docs">
-          Verify library APIs only when task acceptance or implementation depends on exact external API behavior.
-        </step>
-      </library-validation>
+      <cot_internal>
+        <purpose>Force explicit per-task reasoning over every internal reference before recording a verdict. Prevents silent assumptions.</purpose>
+        <per-task>
+          For each task, reason through these steps before writing any finding:
+          1. Enumerate every symbol, file path, API route, schema field, and component name referenced in this task's context, steps, or acceptance checks.
+          2. For each item: query via mcp__semble__search or mcp__serena__find_symbol. Record the exact result (file:line or NOT FOUND).
+          3. If found: mark CONFIRMED with source evidence (file:line).
+          4. If not found after semble + serena: mark [UNVERIFIED: name] — never assume it exists or substitute a plausible name.
+          5. State verdict: "Task {ID} internal: {N} CONFIRMED, {M} UNVERIFIED." Any UNVERIFIED item is a blocking issue.
+        </per-task>
+      </cot_internal>
+
+      <cot_external>
+        <purpose>Force explicit per-task reasoning over every external library and API reference before recording a verdict.</purpose>
+        <per-task condition="task references an external library or third-party API">
+          For each such task, reason through these steps:
+          1. Enumerate every external package, library class, and third-party API method referenced in this task's context, steps, or acceptance checks.
+          2. For each package: locate it in the manifest (package.json / pyproject.toml / go.mod / etc.) and note the pinned version.
+          3. For each API method or class: query mcp__context7__query-docs to confirm it exists at the pinned version.
+          4. If docs confirm usage: mark CONFIRMED with version evidence.
+          5. If the method has been removed, renamed, or its signature changed at the pinned version: mark [OUTDATED: name@version — current API is {X}].
+          6. State verdict: "Task {ID} external: {N} CONFIRMED, {M} OUTDATED." Any OUTDATED item is a blocking issue.
+        </per-task>
+        <blocking-if>
+          <condition>An external API method or class used in a task does not exist in the pinned library version per context7 docs.</condition>
+          <condition>A task's external library usage contradicts current documentation (deprecated method, changed signature).</condition>
+        </blocking-if>
+      </cot_external>
 
       <external-version-check required="true" condition="spec or tasks name external libraries">
         <principle>Every dependency named in the spec must exist in the manifest at the pinned version (or be flagged NEW-TO-INSTALL). External API names must still resolve via Context7.</principle>
