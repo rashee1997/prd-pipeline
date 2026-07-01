@@ -6,11 +6,9 @@ allowed-tools: mcp__semble, mcp__serena, mcp__octocode, mcp__context7, Bash
 
 <command name="/prd-tasks">
 
-  <execution>
-    <follow_structure>strict</follow_structure>
-    <treat_tags_as_semantic>true</treat_tags_as_semantic>
-    <do_not_skip_phases>true</do_not_skip_phases>
-    <do_not_assume>true</do_not_assume>
+  <shared_rules>_shared.md — base execution, semble-first, UNVERIFIED protocol, and MCP fallback apply to this command.</shared_rules>
+
+  <execution><!-- base rules in _shared.md -->
     <prefer_mcp_for_research>true</prefer_mcp_for_research>
   </execution>
 
@@ -38,6 +36,11 @@ allowed-tools: mcp__semble, mcp__serena, mcp__octocode, mcp__context7, Bash
       <task_files>{prd-folder}/tasks/TASK-*.md</task_files>
     </outputs>
   </input>
+
+  <input_gate>
+    <check>The plan.md file path in $ARGUMENTS must exist and be non-empty.</check>
+    <if_missing>Stop immediately. Print: "❌ Missing plan.md. Run /prd-plan &lt;prd.md&gt; &lt;spec.md&gt; first." Do not proceed.</if_missing>
+  </input_gate>
 
   <mcp_policy>
     <principle>MCP tools are primary for task context refresh. Bash is for generated PRD artifacts and file writes.</principle>

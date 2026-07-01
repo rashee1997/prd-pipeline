@@ -6,12 +6,9 @@ allowed-tools: mcp__semble, mcp__serena, mcp__octocode, mcp__context7, WebSearch
 
 <command name="/prd-write">
 
-  <execution>
-    <follow_structure>strict</follow_structure>
-    <treat_tags_as_semantic>true</treat_tags_as_semantic>
-    <do_not_skip_phases>true</do_not_skip_phases>
-    <do_not_assume>true</do_not_assume>
-  </execution>
+  <shared_rules>_shared.md — base execution, semble-first, UNVERIFIED protocol, and MCP fallback apply to this command.</shared_rules>
+
+  <execution><!-- base rules in _shared.md --></execution>
 
   <system>
     <role>Senior product manager, technical architect, and regression-risk analyst</role>
@@ -33,6 +30,15 @@ allowed-tools: mcp__semble, mcp__serena, mcp__octocode, mcp__context7, WebSearch
     <discovery>{$ARGUMENTS}</discovery>
     <outputs>prd.md, spec.md</outputs>
   </input>
+
+  <input_gate>
+    <check>The discovery.md file path in $ARGUMENTS must exist and be non-empty.</check>
+    <if_missing>Stop immediately. Print: "❌ Missing or empty discovery.md at: {$ARGUMENTS}. Run /prd-discover &lt;feature&gt; first, then pass the path here." Do not proceed.</if_missing>
+  </input_gate>
+
+  <mode_detection>
+    <delta>If $ARGUMENTS contains "--delta": set mode=delta. Delta mode outputs only ADDED, MODIFIED, or REMOVED sections in spec.md — omit unchanged sections. Suitable for small brownfield enhancements only. PRD.md remains full-format.</delta>
+  </mode_detection>
 
   <flow>
 
@@ -739,12 +745,33 @@ For each utility:
       <pre-final-check priority="critical">
         Before saving, re-read sections 4-13 and verify every named file/symbol/route/field/prop appears in evidence_index (1.1/1.2) with matching file:line, or is [UNVERIFIED: name] in 1.3. Do not save a spec containing an unsourced existing-code claim.
       </pre-final-check>
+
+      <cove_verification priority="critical">
+        Chain-of-Verification — run before writing final files:
+        1. Extract every file path, symbol name, API route, and schema field cited in prd.md body text into a verification list.
+        2. For each item: call mcp__semble__search to confirm it exists. If semble unavailable, use mcp__octocode__localSearchCode.
+        3. Confirmed → add to evidence_index with tool+file:line.
+        4. Not found → replace with [UNVERIFIED: {name}] in both prd.md and spec.md.
+        5. Do not write final files until every cited name is either confirmed or explicitly marked [UNVERIFIED].
+        Non-skippable even if blast-radius research already found these symbols — re-verify before writing.
+      </cove_verification>
     </phase>
 
   </flow>
 
   <control>
     <priority>blast-radius evidence before specification</priority>
+
+    <delta_spec_rules condition="mode=delta">
+      When mode=delta, spec.md uses a condensed format. Only write sections that have changes:
+      - ADDED: new files, new functions, new schema fields, new routes
+      - MODIFIED: existing items that change (include before/after for any signature change)
+      - REMOVED: items deleted or deprecated
+      Unchanged sections → write "&lt;!-- unchanged --&gt;" or omit entirely.
+      PRD.md remains full-format. Delta applies to spec.md only.
+      Minimum viable delta spec: three tables (ADDED / MODIFIED / REMOVED) with file:symbol:change_type columns.
+    </delta_spec_rules>
+
     <failure>if missing evidence → research more; if still missing → mark [UNVERIFIED]</failure>
     <critical>
       <rule>Do not write PRD/spec before blast-radius gate passes.</rule>

@@ -6,12 +6,9 @@ allowed-tools: mcp__semble, mcp__serena, mcp__octocode, mcp__context7, Bash
 
 <command name="/prd-discover">
 
-  <execution>
-    <follow_structure>strict</follow_structure>
-    <treat_tags_as_semantic>true</treat_tags_as_semantic>
-    <do_not_skip_phases>true</do_not_skip_phases>
-    <do_not_assume>true</do_not_assume>
-  </execution>
+  <shared_rules>_shared.md — base execution, semble-first, UNVERIFIED protocol, and MCP fallback apply to this command.</shared_rules>
+
+  <execution><!-- base rules in _shared.md --></execution>
 
   <system>
     <role>Senior product engineer and systems analyst</role>
@@ -33,6 +30,15 @@ allowed-tools: mcp__semble, mcp__serena, mcp__octocode, mcp__context7, Bash
     <mode>discovery-only</mode>
     <output>discovery.md</output>
   </input>
+
+  <input_gate>
+    <check>$ARGUMENTS must not be empty — a feature description is required.</check>
+    <if_missing>Stop immediately. Print: "❌ No feature description provided. Usage: /prd-discover &lt;feature idea&gt; [--greenfield]". Do not proceed.</if_missing>
+  </input_gate>
+
+  <mode_detection>
+    <greenfield>If $ARGUMENTS contains "--greenfield": set mode=greenfield. Strip "--greenfield" from the feature text before processing. Greenfield means no live codebase exists — you are designing a new project from scratch.</greenfield>
+  </mode_detection>
 
   <flow>
 
@@ -71,6 +77,15 @@ allowed-tools: mcp__semble, mcp__serena, mcp__octocode, mcp__context7, Bash
 
     <phase id="0.5" name="complexity-routing" silent="true">
       <task>Classify task complexity before allocating research resources. Simpler tasks skip expensive research phases.</task>
+
+      <if condition="mode=greenfield">
+        <note>No codebase exists to scan. Skip all file-count and blast-radius heuristics.</note>
+        <complexity>greenfield-complex — always use full research budget.</complexity>
+        <skip>Skip phase 1 live-code research. Instead: search GitHub for similar projects and community conventions for the described feature domain. Use mcp__octocode__githubSearchRepositories and WebSearch.</skip>
+        <questions>Focus discovery questions on: tech stack selection, architectural boundaries, data model first principles, integration points, and key product decisions — not on existing code.</questions>
+        <output_addition>Add to discovery.md: a "mode: greenfield" marker, and an "adr_stubs" section listing 3-5 key architecture decisions to make (e.g. "DB choice", "auth strategy", "deployment target").</output_addition>
+        <continue>Proceed to phase 2 (precision-question-bank) using external research instead of live-code research.</continue>
+      </if>
 
       <classifiers>
         <heuristic name="file-count">Count unique files the feature likely touches. Use mcp__semble__search to find related files. If unsure, assume higher bound.</heuristic>

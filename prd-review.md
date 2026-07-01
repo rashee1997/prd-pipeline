@@ -6,11 +6,9 @@ allowed-tools: mcp__semble, mcp__serena, mcp__octocode, Task, Bash
 
 <command name="/prd-review">
  
-   <execution>
-     <follow_structure>strict</follow_structure>
-     <treat_tags_as_semantic>true</treat_tags_as_semantic>
-     <do_not_skip_phases>true</do_not_skip_phases>
-     <do_not_assume>true</do_not_assume>
+   <shared_rules>_shared.md — base execution, semble-first, UNVERIFIED protocol, and MCP fallback apply to this command.</shared_rules>
+
+   <execution><!-- base rules in _shared.md -->
      <output_findings_only>true</output_findings_only>
    </execution>
  
@@ -33,6 +31,11 @@ allowed-tools: mcp__semble, mcp__serena, mcp__octocode, Task, Bash
      <layer_flag>{$LAYER_FLAG}</layer_flag>
      <outputs>merged review findings only</outputs>
    </input>
+
+   <input_gate>
+     <check>The prd-folder path in $ARGUMENTS must exist and contain prd.md, spec.md, and tasks/index.md.</check>
+     <if_missing>Stop immediately. Print: "❌ PRD folder not found or incomplete at: {$ARGUMENTS}. Ensure /prd-implement has completed at least one task." Do not proceed.</if_missing>
+   </input_gate>
 
   <ponytail>
     <function>

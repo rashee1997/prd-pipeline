@@ -6,12 +6,9 @@ allowed-tools: mcp__semble, Bash
 
 <command name="/prd-pr">
 
-  <execution>
-    <follow_structure>strict</follow_structure>
-    <treat_tags_as_semantic>true</treat_tags_as_semantic>
-    <do_not_skip_phases>true</do_not_skip_phases>
-    <do_not_assume>true</do_not_assume>
-  </execution>
+  <shared_rules>_shared.md — base execution, semble-first, UNVERIFIED protocol, and MCP fallback apply to this command.</shared_rules>
+
+  <execution><!-- base rules in _shared.md --></execution>
 
   <system>
     <role>Senior engineer preparing a completed feature pull request</role>
@@ -31,6 +28,11 @@ allowed-tools: mcp__semble, Bash
     <target_branch>{$ARGUMENTS}</target_branch>
     <default_target>repo default branch, fallback main</default_target>
   </input>
+
+  <input_gate>
+    <check>A git repository must exist and the current branch must not be the default branch (main/master).</check>
+    <if_missing>Stop immediately. Print: "❌ Not on a feature branch, or no git repo found. Create a feature branch and complete implementation before running /prd-pr." Do not proceed.</if_missing>
+  </input_gate>
 
   <flow>
 

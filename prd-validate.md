@@ -6,11 +6,9 @@ allowed-tools: mcp__semble, mcp__serena, mcp__octocode, mcp__context7, Bash
 
 <command name="/prd-validate">
 
-  <execution>
-    <follow_structure>strict</follow_structure>
-    <treat_tags_as_semantic>true</treat_tags_as_semantic>
-    <do_not_skip_phases>true</do_not_skip_phases>
-    <do_not_assume>true</do_not_assume>
+  <shared_rules>_shared.md — base execution, semble-first, UNVERIFIED protocol, and MCP fallback apply to this command.</shared_rules>
+
+  <execution><!-- base rules in _shared.md -->
     <prefer_mcp_for_research>true</prefer_mcp_for_research>
     <do_not_implement_code>true</do_not_implement_code>
   </execution>
@@ -42,6 +40,15 @@ allowed-tools: mcp__semble, mcp__serena, mcp__octocode, mcp__context7, Bash
     <output>{prd-folder}/tasks/validation.md</output>
   </input>
 
+  <input_gate>
+    <check>The tasks path in $ARGUMENTS must exist (tasks/index.md or tasks/ directory).</check>
+    <if_missing>Stop immediately. Print: "❌ Tasks not found at: {$ARGUMENTS}. Run /prd-tasks &lt;plan.md&gt; first." Do not proceed.</if_missing>
+  </input_gate>
+
+  <mode_detection>
+    <greenfield>If $ARGUMENTS contains "--greenfield": set mode=greenfield. Greenfield validation replaces live-code existence checks with spec-conformance checks (see greenfield_validation_rules below).</greenfield>
+  </mode_detection>
+
   <mcp_policy>
     <principle>MCP tools are the primary research layer for codebase validation.</principle>
 
@@ -71,6 +78,16 @@ allowed-tools: mcp__semble, mcp__serena, mcp__octocode, mcp__context7, Bash
       If MCP tools are unavailable or insufficient, state that clearly in validation notes and use Bash for targeted verification.
     </fallback>
   </mcp_policy>
+
+  <greenfield_validation_rules condition="mode=greenfield">
+    In greenfield mode no files exist yet. Replace existence checks with convention and conformance checks:
+    - File path check → verify path follows the proposed architecture conventions (correct module folder, correct naming pattern from spec.md).
+    - Symbol existence check → verify symbol is defined in a task acceptance criteria (cross-task consistency, not live codebase lookup).
+    - Blast-radius validation → skip (no live code). Instead: check tasks do not define conflicting interfaces.
+    - Acceptance criteria check → verify each task acceptance criteria maps to a specific PRD requirement ID.
+    Report: spec_conformance_score (0-100%) = (tasks with PRD-linked acceptance criteria) / (total tasks) × 100.
+    Pass threshold: spec_conformance_score ≥ 80%. Below 80% → status=BLOCKED with conformance gap listed.
+  </greenfield_validation_rules>
 
   <flow>
 

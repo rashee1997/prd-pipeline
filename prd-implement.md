@@ -6,11 +6,9 @@ allowed-tools: mcp__semble, mcp__serena, mcp__octocode, mcp__context7, Task, Bas
 
 <command name="/prd-implement">
 
-  <execution>
-    <follow_structure>strict</follow_structure>
-    <treat_tags_as_semantic>true</treat_tags_as_semantic>
-    <do_not_skip_phases>true</do_not_skip_phases>
-    <do_not_assume>true</do_not_assume>
+  <shared_rules>_shared.md — base execution, semble-first, UNVERIFIED protocol, and MCP fallback apply to this command.</shared_rules>
+
+  <execution><!-- base rules in _shared.md -->
     <prefer_mcp_for_research>true</prefer_mcp_for_research>
   </execution>
 
@@ -41,6 +39,11 @@ allowed-tools: mcp__semble, mcp__serena, mcp__octocode, mcp__context7, Task, Bas
       <empty>show unchecked tasks from tasks/index.md</empty>
     </formats>
   </input>
+
+  <input_gate>
+    <check>A task file path or task ID in $ARGUMENTS must be provided. If running a task, tasks/validation.md must show status=VALIDATED.</check>
+    <if_missing>Stop immediately. Print: "❌ No task specified, or validation not passed. Run /prd-validate &lt;tasks/&gt; first, then /prd-implement &lt;TASK-ID&gt;." Do not proceed.</if_missing>
+  </input_gate>
 
   <mcp_policy>
     <principle>MCP is mandatory for implementation research. Bash is not a replacement for MCP code research.</principle>
@@ -287,6 +290,7 @@ allowed-tools: mcp__semble, mcp__serena, mcp__octocode, mcp__context7, Task, Bas
         <step condition="task already [x]">Output "TASK already complete." and stop.</step>
         <step>Read linked plan section for this task only.</step>
         <step>Confirm dependencies in index.md are [x] ✅.</step>
+        <step condition="all dependencies [x]">For each completed dependency, read its output note from index.md (the line starting with `> **Output:**` directly below its [x] row, if present). Use this to catch deviations, renames, or side effects from the prior implementation before researching this task.</step>
         <step condition="all dependencies [x]">For each dependency, read its task file and verify every file listed under "Files to create:" or "Files to modify:" actually exists in the workspace at the expected path. Use `Bash: Test-Path` or `Bash: ls` to confirm each file is present. If a file was supposed to be created but doesn't exist, or a file to modify is missing, the dependency is not truly complete — the index.md status is unreliable.</step>
       </steps>
 
@@ -458,6 +462,10 @@ TDD: {RED|IMPL|GREEN|REFACTOR|N/A}"
           <step>Edit {index_file}: mark task as [x] ✅.</step>
           <step>Increment progress counter.</step>
           <step>Identify newly unblocked tasks.</step>
+          <step>Append a brief output note directly below the task row in index.md:
+            Format: `  > **Output:** {1 sentence: what was implemented}. {Deviations from plan, unexpected side effects, or renamed/moved items that downstream tasks must know — omit if none}.`
+            Max 60 words. Only include what a subsequent implementer needs — skip if task went exactly as planned.
+          </step>
         </steps>
 
 ```bash

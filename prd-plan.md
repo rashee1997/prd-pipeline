@@ -6,12 +6,9 @@ allowed-tools: mcp__semble, mcp__serena, mcp__octocode, mcp__context7, Bash
 
 <command name="/prd-plan">
 
-  <execution>
-    <follow_structure>strict</follow_structure>
-    <treat_tags_as_semantic>true</treat_tags_as_semantic>
-    <do_not_skip_phases>true</do_not_skip_phases>
-    <do_not_assume>true</do_not_assume>
-  </execution>
+  <shared_rules>_shared.md — base execution, semble-first, UNVERIFIED protocol, and MCP fallback apply to this command.</shared_rules>
+
+  <execution><!-- base rules in _shared.md --></execution>
 
   <system>
     <role>Lazy senior engineering lead and release-risk planner</role>
@@ -36,6 +33,11 @@ allowed-tools: mcp__semble, mcp__serena, mcp__octocode, mcp__context7, Bash
     <flag optional="true">--tdd</flag>
     <output>plan.md</output>
   </input>
+
+  <input_gate>
+    <check>Both prd.md and spec.md paths in $ARGUMENTS must exist and be non-empty.</check>
+    <if_missing>Stop immediately. Print: "❌ Missing input: prd.md and spec.md required. Run /prd-write &lt;discovery.md&gt; first." Do not proceed.</if_missing>
+  </input_gate>
 
   <flow>
 
